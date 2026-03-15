@@ -44,7 +44,10 @@ const App = () => {
   const [tauxCreditGlobal, setTauxCreditGlobal] = useState(4.9);
 
   // --- VÉHICULES (Tableau d'objets dynamique) ---
-  const [cars, setCars] = useState([
+  const [cars, setCars] = useState([]);
+  
+  // Données par défaut si Firebase n'est pas configuré ou si aucune donnée n'existe
+  const defaultCars = [
     {
       id: 1,
       name: "Votre Devis Actuel",
@@ -84,7 +87,7 @@ const App = () => {
       prixCarburant: 0.28, 
       entretien: 300 
     }
-  ]);
+  ];
 
   // Actions sur les véhicules
   const updateCar = (index, field, value) => {
@@ -150,13 +153,25 @@ const App = () => {
         if (data.vignette !== undefined) setVignette(data.vignette);
         if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
         if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
+      } else {
+        // Si le document n'existe pas, utiliser les données par défaut
+        setCars(defaultCars);
       }
     }, (error) => {
        console.error("Erreur de synchronisation :", error);
+       // En cas d'erreur, utiliser les données par défaut
+       setCars(defaultCars);
     });
 
     return () => unsubscribe();
   }, [user]);
+
+  // Utiliser les données par défaut si Firebase n'est pas configuré
+  useEffect(() => {
+    if (!isFirebaseValid && cars.length === 0) {
+      setCars(defaultCars);
+    }
+  }, [isFirebaseValid]);
 
   const saveData = async () => {
     if (!isFirebaseValid) {
