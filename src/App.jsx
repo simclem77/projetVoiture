@@ -10,16 +10,15 @@ let firebaseConfig = {};
 if (typeof __firebase_config !== 'undefined') {
   // Environnement Canvas (Automatique)
   firebaseConfig = JSON.parse(__firebase_config);
-} else if (typeof process !== 'undefined' && process.env) {
-  // Environnement Externe (Netlify, Vercel, etc.)
-  // Note : Si vous utilisez Vite, remplacez "process.env" par "import.meta.env" et "REACT_APP_" par "VITE_" dans votre projet final.
+} else if (typeof import.meta !== 'undefined' && import.meta.env) {
+  // Environnement Vite (Netlify, Vercel, etc.)
   firebaseConfig = {
-    apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-    authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.REACT_APP_FIREBASE_APP_ID
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID
   };
 }
 
