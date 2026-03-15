@@ -29,6 +29,30 @@ const auth = isFirebaseValid ? getAuth(app) : null;
 const db = isFirebaseValid ? getFirestore(app) : null;
 const currentAppId = typeof __app_id !== 'undefined' ? __app_id : 'comparateur-auto-perso';
 
+// Fonction utilitaire pour convertir les nombres avec séparateurs décimaux
+const parseDecimal = (value) => {
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string') return 0;
+  
+  // Remplacer les virgules par des points
+  const normalized = value.replace(',', '.');
+  
+  // Supprimer tout ce qui n'est pas chiffre, point ou signe négatif
+  const cleaned = normalized.replace(/[^\d.-]/g, '');
+  
+  // Convertir en nombre
+  const num = parseFloat(cleaned);
+  
+  // Retourner 0 si NaN, sinon le nombre
+  return isNaN(num) ? 0 : num;
+};
+
+// Fonction pour formater l'affichage avec le séparateur approprié
+const formatDecimal = (value, decimals = 2) => {
+  const num = typeof value === 'number' ? value : parseDecimal(value);
+  return num.toFixed(decimals).replace('.', ',');
+};
+
 const App = () => {
   // --- ÉTAT AUTH & SAUVEGARDE ---
   const [user, setUser] = useState(null);
@@ -42,6 +66,8 @@ const App = () => {
   const [parking, setParking] = useState(0); 
   const [vignette, setVignette] = useState(40); 
   const [tauxCreditGlobal, setTauxCreditGlobal] = useState(4.9);
+  const [inflationAnnuelle, setInflationAnnuelle] = useState(2.0);
+  const [tauxPlacement, setTauxPlacement] = useState(3.0);
 
   // --- VÉHICULES (Tableau d'objets dynamique) ---
   const [cars, setCars] = useState([]);
@@ -92,7 +118,15 @@ const App = () => {
   // Actions sur les véhicules
   const updateCar = (index, field, value) => {
     const newCars = [...cars];
-    newCars[index][field] = value;
+    // Utiliser parseDecimal pour les champs numériques
+    const numericFields = ['prixAchat', 'apport', 'tauxLeasing', 'valeurResiduelle', 
+                          'assurance', 'impotCantonal', 'consommation', 'prixCarburant', 'entretien'];
+    
+    if (numericFields.includes(field)) {
+      newCars[index][field] = parseDecimal(value);
+    } else {
+      newCars[index][field] = value;
+    }
     setCars(newCars);
   };
 
@@ -296,223 +330,316 @@ const App = () => {
           </div>
         </header>
 
-        {/* RÉCAPITULATIF GRAPHIQUE */}
+        {/* SYNTHÈSE GRAPHIQUE AMÉLIORÉE */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-           <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-slate-800">
-             <BarChart3 className="w-6 h-6 text-indigo-500" /> 
-             Récapitulatif Graphique (Coût Mensuel Vrai TCO)
-           </h2>
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-             {results.map(r => (
-               <div key={`chart-${r.id}`} className="space-y-3">
-                 <h3 className="font-bold text-slate-700 truncate border-b pb-2">{r.name}</h3>
-                 
-                 <div className="space-y-3">
-                   {/* Barre Leasing */}
-                   <div>
-                     <div className="flex justify-between text-xs mb-1 font-medium">
-                       <span className="text-blue-700">Leasing</span>
-                       <span className="text-slate-600">{r.leasing.tco.toFixed(0)} CHF</span>
-                     </div>
-                     <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
-                       <div className="bg-blue-500 h-4 rounded-full transition-all duration-500" style={{ width: `${(r.leasing.tco / maxTCO) * 100}%` }}></div>
-                     </div>
-                   </div>
-                   {/* Barre Crédit */}
-                   <div>
-                     <div className="flex justify-between text-xs mb-1 font-medium">
-                       <span className="text-emerald-700">Crédit ({tauxCreditGlobal}%)</span>
-                       <span className="text-slate-600">{r.credit.tco.toFixed(0)} CHF</span>
-                     </div>
-                     <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
-                       <div className="bg-emerald-500 h-4 rounded-full transition-all duration-500" style={{ width: `${(r.credit.tco / maxTCO) * 100}%` }}></div>
-                     </div>
-                   </div>
-                   {/* Barre Comptant */}
-                   <div>
-                     <div className="flex justify-between text-xs mb-1 font-medium">
-                       <span className="text-purple-700">Comptant</span>
-                       <span className="text-slate-600">{r.comptant.tco.toFixed(0)} CHF</span>
-                     </div>
-                     <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
-                       <div className="bg-purple-500 h-4 rounded-full transition-all duration-500" style={{ width: `${(r.comptant.tco / maxTCO) * 100}%` }}></div>
-                     </div>
-                   </div>
-                 </div>
-               </div>
-             ))}
-           </div>
+          <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-slate-800">
+            <BarChart3 className="w-6 h-6 text-indigo-500" /> 
+            Comparaison Visuelle des Véhicules (TCO Mensuel)
+          </h2>
+          
+          {/* Sélecteur de mode de financement */}
+          <div className="flex space-x-2 mb-6">
+            <button className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg font-medium text-sm">Leasing</button>
+            <button className="px-4 py-2 bg-emerald-100 text-emerald-800 rounded-lg font-medium text-sm">Crédit ({tauxCreditGlobal}%)</button>
+            <button className="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg font-medium text-sm">Comptant</button>
+          </div>
+
+          {/* Graphique de comparaison */}
+          <div className="space-y-4">
+            {results.map((r, index) => {
+              const tcoLeasing = r.leasing.tco;
+              const tcoCredit = r.credit.tco;
+              const tcoComptant = r.comptant.tco;
+              const maxVehicleTCO = Math.max(tcoLeasing, tcoCredit, tcoComptant);
+              
+              return (
+                <div key={`comparison-${r.id}`} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-slate-700">{r.name}</span>
+                    <div className="flex space-x-4 text-sm">
+                      <span className="text-blue-600 font-medium">{tcoLeasing.toFixed(0)} CHF</span>
+                      <span className="text-emerald-600 font-medium">{tcoCredit.toFixed(0)} CHF</span>
+                      <span className="text-purple-600 font-medium">{tcoComptant.toFixed(0)} CHF</span>
+                    </div>
+                  </div>
+                  
+                  {/* Barres comparatives */}
+                  <div className="flex space-x-1 h-8">
+                    {/* Barre Leasing */}
+                    <div 
+                      className="bg-blue-500 rounded-l-lg transition-all duration-500 hover:bg-blue-600 relative group"
+                      style={{ width: `${(tcoLeasing / maxTCO) * 100}%` }}
+                      title={`Leasing: ${tcoLeasing.toFixed(0)} CHF`}
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-white text-xs font-bold">{tcoLeasing.toFixed(0)}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Barre Crédit */}
+                    <div 
+                      className="bg-emerald-500 transition-all duration-500 hover:bg-emerald-600 relative group"
+                      style={{ width: `${(tcoCredit / maxTCO) * 100}%` }}
+                      title={`Crédit: ${tcoCredit.toFixed(0)} CHF`}
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-white text-xs font-bold">{tcoCredit.toFixed(0)}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Barre Comptant */}
+                    <div 
+                      className="bg-purple-500 rounded-r-lg transition-all duration-500 hover:bg-purple-600 relative group"
+                      style={{ width: `${(tcoComptant / maxTCO) * 100}%` }}
+                      title={`Comptant: ${tcoComptant.toFixed(0)} CHF`}
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-white text-xs font-bold">{tcoComptant.toFixed(0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Légende détaillée */}
+                  <div className="grid grid-cols-3 gap-2 text-xs text-slate-500 mt-1">
+                    <div className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                        <span>Leasing</span>
+                      </div>
+                      <div className="font-bold text-slate-700">{tcoLeasing.toFixed(0)} CHF</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <div className="w-3 h-3 bg-emerald-500 rounded"></div>
+                        <span>Crédit</span>
+                      </div>
+                      <div className="font-bold text-slate-700">{tcoCredit.toFixed(0)} CHF</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <div className="w-3 h-3 bg-purple-500 rounded"></div>
+                        <span>Comptant</span>
+                      </div>
+                      <div className="font-bold text-slate-700">{tcoComptant.toFixed(0)} CHF</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          {/* Résumé statistique */}
+          {results.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-slate-200">
+              <h3 className="font-bold text-slate-700 mb-3">Résumé des coûts</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="text-blue-800 font-bold text-lg">Leasing</div>
+                  <div className="text-2xl font-black text-blue-700 mt-1">
+                    {(results.reduce((sum, r) => sum + r.leasing.tco, 0) / results.length).toFixed(0)} CHF
+                  </div>
+                  <div className="text-sm text-blue-600 mt-1">Moyenne par véhicule</div>
+                </div>
+                <div className="bg-emerald-50 p-4 rounded-lg">
+                  <div className="text-emerald-800 font-bold text-lg">Crédit</div>
+                  <div className="text-2xl font-black text-emerald-700 mt-1">
+                    {(results.reduce((sum, r) => sum + r.credit.tco, 0) / results.length).toFixed(0)} CHF
+                  </div>
+                  <div className="text-sm text-emerald-600 mt-1">Moyenne par véhicule</div>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <div className="text-purple-800 font-bold text-lg">Comptant</div>
+                  <div className="text-2xl font-black text-purple-700 mt-1">
+                    {(results.reduce((sum, r) => sum + r.comptant.tco, 0) / results.length).toFixed(0)} CHF
+                  </div>
+                  <div className="text-sm text-purple-600 mt-1">Moyenne par véhicule</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* PARAMÈTRES GLOBAUX */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-indigo-800">
-            <Wallet className="w-5 h-5" /> Paramètres d'Usage & Crédit
+            <Wallet className="w-5 h-5" /> Paramètres d'Usage & Économiques
           </h2>
-          <div className="flex flex-wrap gap-4">
-             <div className="flex-1 min-w-[150px]">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+             <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Durée (mois)</label>
-               <input type="number" value={dureeMois} onChange={e => setDureeMois(Number(e.target.value))} className="w-full p-2 border rounded-md" />
+               <input type="text" value={dureeMois} onChange={e => setDureeMois(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
              </div>
-             <div className="flex-1 min-w-[150px]">
+             <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Km annuel</label>
-               <input type="number" value={kmAnnuel} onChange={e => setKmAnnuel(Number(e.target.value))} className="w-full p-2 border rounded-md" />
+               <input type="text" value={kmAnnuel} onChange={e => setKmAnnuel(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
              </div>
-             <div className="flex-1 min-w-[150px]">
-               <label className="block text-xs font-medium text-slate-500">Parking / mois (CHF)</label>
-               <input type="number" value={parking} onChange={e => setParking(Number(e.target.value))} className="w-full p-2 border rounded-md" />
+             <div className="col-span-1">
+               <label className="block text-xs font-medium text-slate-500">Parking /mois</label>
+               <input type="text" value={parking} onChange={e => setParking(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
              </div>
-             <div className="flex-1 min-w-[200px] border-l border-slate-200 pl-4">
-               <label className="block text-xs font-bold text-emerald-600">Taux Crédit Auto Privé (%)</label>
-               <input type="number" step="0.01" value={tauxCreditGlobal} onChange={e => setTauxCreditGlobal(Number(e.target.value))} className="w-full p-2 border border-emerald-300 rounded-md bg-emerald-50 text-emerald-900 font-bold" />
+             <div className="col-span-1">
+               <label className="block text-xs font-medium text-slate-500">Vignette /an</label>
+               <input type="text" value={vignette} onChange={e => setVignette(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
+             </div>
+             <div className="col-span-1 border-l border-slate-200 pl-4">
+               <label className="block text-xs font-bold text-emerald-600">Crédit (%)</label>
+               <input type="text" value={formatDecimal(tauxCreditGlobal, 2)} onChange={e => setTauxCreditGlobal(parseDecimal(e.target.value))} className="w-full p-2 border border-emerald-300 rounded-md bg-emerald-50 text-emerald-900 font-bold" />
+             </div>
+             <div className="col-span-1">
+               <label className="block text-xs font-medium text-amber-600">Inflation (%)</label>
+               <input type="text" value={formatDecimal(inflationAnnuelle, 2)} onChange={e => setInflationAnnuelle(parseDecimal(e.target.value))} className="w-full p-2 border border-amber-300 rounded-md bg-amber-50 text-amber-900" />
+             </div>
+             <div className="col-span-1">
+               <label className="block text-xs font-medium text-cyan-600">Placement (%)</label>
+               <input type="text" value={formatDecimal(tauxPlacement, 2)} onChange={e => setTauxPlacement(parseDecimal(e.target.value))} className="w-full p-2 border border-cyan-300 rounded-md bg-cyan-50 text-cyan-900" />
              </div>
           </div>
         </div>
 
-        {/* GRILLE HORIZONTALE DES VÉHICULES */}
-        <div className="flex overflow-x-auto gap-6 pb-6 pt-2 snap-x">
+        {/* GRILLE DES VÉHICULES (HORIZONTALE) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
           {cars.map((car, index) => (
-            <div key={car.id} className="min-w-[340px] max-w-[360px] shrink-0 snap-center bg-white rounded-xl shadow-md border border-slate-200 flex flex-col relative group">
+            <div key={car.id} className="bg-white rounded-xl shadow-md border border-slate-200 flex flex-col relative group">
               
-              {/* Entête Véhicule */}
+              {/* Entête Véhicule avec % valeur résiduelle */}
               <div className="bg-slate-800 p-4 rounded-t-xl flex justify-between items-center">
-                <input 
-                  type="text" 
-                  value={car.name} 
-                  onChange={e => updateCar(index, 'name', e.target.value)}
-                  className="w-full bg-slate-700 text-white font-bold text-lg p-2 rounded border-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-400 mr-2"
-                  placeholder={`Véhicule ${index + 1}`}
-                />
+                <div className="flex-1">
+                  <input 
+                    type="text" 
+                    value={car.name} 
+                    onChange={e => updateCar(index, 'name', e.target.value)}
+                    className="w-full bg-slate-700 text-white font-bold text-lg p-2 rounded border-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-400"
+                    placeholder={`Véhicule ${index + 1}`}
+                  />
+                </div>
                 <button 
                   onClick={() => removeCar(car.id)}
                   disabled={cars.length === 1}
-                  className="text-slate-400 hover:text-red-400 disabled:opacity-30 transition-colors"
+                  className="text-slate-400 hover:text-red-400 disabled:opacity-30 transition-colors ml-2"
                   title="Supprimer ce véhicule"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Formulaire Véhicule */}
-              <div className="p-4 space-y-4 bg-white">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-bold text-slate-500 uppercase">Prix Brut TTC (CHF)</label>
-                    <input type="number" value={car.prixAchat} onChange={e => updateCar(index, 'prixAchat', Number(e.target.value))} className="w-full p-2 border border-slate-300 rounded-lg font-bold text-lg text-slate-800 bg-slate-50" />
+              {/* Badge % valeur résiduelle */}
+              {car.prixAchat > 0 && (
+                <div className="absolute top-4 right-4 bg-indigo-500 text-white text-xs font-bold px-2 py-1 rounded-full z-10">
+                  {((car.valeurResiduelle / car.prixAchat) * 100).toFixed(1)}% résiduel
+                </div>
+              )}
+
+              {/* Contenu en 2 colonnes : Formulaire + Résultats */}
+              <div className="flex flex-col lg:flex-row flex-grow">
+                {/* Colonne GAUCHE : Formulaire */}
+                <div className="lg:w-1/2 p-4 space-y-3 border-r border-slate-100">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase">Prix TTC (CHF)</label>
+                    <input type="text" value={car.prixAchat} onChange={e => updateCar(index, 'prixAchat', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50" />
                   </div>
                   
-                  {/* Spécifique Leasing */}
-                  <div className="col-span-2 bg-blue-50 border border-blue-100 p-3 rounded-lg grid grid-cols-2 gap-3">
-                     <div className="col-span-2 mb-[-8px]">
-                       <span className="text-xs font-bold text-blue-800 uppercase">Conditions du vendeur</span>
-                     </div>
-                     <div>
-                       <label className="block text-xs font-semibold text-blue-700">Apport initial</label>
-                       <input type="number" value={car.apport} onChange={e => updateCar(index, 'apport', Number(e.target.value))} className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white" />
-                     </div>
-                     <div>
-                       <label className="block text-xs font-semibold text-blue-700">Taux Leasing (%)</label>
-                       <input type="number" step="0.01" value={car.tauxLeasing} onChange={e => updateCar(index, 'tauxLeasing', Number(e.target.value))} className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold" />
-                     </div>
-                  </div>
-
-                  <div className="col-span-2 mt-1">
-                    <label className="block text-xs font-semibold text-slate-500 uppercase flex justify-between">
-                      Valeur Résiduelle
-                      {car.prixAchat > 0 && <span className="text-indigo-600 font-bold">{((car.valeurResiduelle / car.prixAchat) * 100).toFixed(1)}%</span>}
-                    </label>
-                    <input type="number" value={car.valeurResiduelle} onChange={e => updateCar(index, 'valeurResiduelle', Number(e.target.value))} className="w-full p-2 border border-slate-300 rounded-lg text-sm" />
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-100 pt-3 grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Assurance /an</label>
-                    <input type="number" value={car.assurance} onChange={e => updateCar(index, 'assurance', Number(e.target.value))} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Impôt /an</label>
-                    <input type="number" value={car.impotCantonal} onChange={e => updateCar(index, 'impotCantonal', Number(e.target.value))} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Entretien /an</label>
-                    <input type="number" value={car.entretien} onChange={e => updateCar(index, 'entretien', Number(e.target.value))} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
-                  </div>
-                  <div></div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso /100km</label>
-                    <input type="number" step="0.1" value={car.consommation} onChange={e => updateCar(index, 'consommation', Number(e.target.value))} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Prix Litre/kWh</label>
-                    <input type="number" step="0.01" value={car.prixCarburant} onChange={e => updateCar(index, 'prixCarburant', Number(e.target.value))} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
-                  </div>
-                </div>
-              </div>
-
-              {/* RÉSULTATS (Les 3 modes affichés) */}
-              <div className="p-4 bg-slate-50 border-t border-slate-200 flex-grow flex flex-col gap-3 rounded-b-xl">
-                
-                <div className="text-center bg-white py-2 px-3 rounded shadow-sm border border-slate-200 flex justify-between items-center">
-                  <span className="text-xs text-slate-500 uppercase font-bold text-left leading-tight">Usage <br/>Mensuel</span>
-                  <span className="font-bold text-slate-700 text-lg">{results[index].fraisUsage.toFixed(0)} <span className="text-sm font-normal">CHF</span></span>
-                </div>
-
-                {/* LEASING */}
-                <div className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm relative overflow-hidden">
-                   <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                   <div className="flex justify-between items-start mb-1 pl-2">
+                  <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg space-y-2">
+                    <span className="text-xs font-bold text-blue-800 uppercase">Conditions leasing</span>
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <span className="font-bold text-blue-800 text-sm block leading-tight">Leasing (TCO)</span>
-                        <span className="text-[10px] text-blue-600 font-medium">Mens. banque: {results[index].leasing.pmt.toFixed(0)}</span>
+                        <label className="block text-xs text-blue-700">Apport</label>
+                        <input type="text" value={car.apport} onChange={e => updateCar(index, 'apport', e.target.value)} className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-blue-700">Taux (%)</label>
+                        <input type="text" value={formatDecimal(car.tauxLeasing, 2)} onChange={e => updateCar(index, 'tauxLeasing', e.target.value)} className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase">Valeur Résiduelle (CHF)</label>
+                    <input type="text" value={car.valeurResiduelle} onChange={e => updateCar(index, 'valeurResiduelle', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg text-sm" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Assurance</label>
+                      <input type="text" value={car.assurance} onChange={e => updateCar(index, 'assurance', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Impôt</label>
+                      <input type="text" value={car.impotCantonal} onChange={e => updateCar(index, 'impotCantonal', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Entretien</label>
+                      <input type="text" value={car.entretien} onChange={e => updateCar(index, 'entretien', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso</label>
+                      <input type="text" value={formatDecimal(car.consommation, 1)} onChange={e => updateCar(index, 'consommation', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Prix carburant/énergie (CHF)</label>
+                    <input type="text" value={formatDecimal(car.prixCarburant, 2)} onChange={e => updateCar(index, 'prixCarburant', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                  </div>
+                </div>
+
+                {/* Colonne DROITE : Résultats */}
+                <div className="lg:w-1/2 p-4 bg-slate-50 flex flex-col gap-3 rounded-b-xl lg:rounded-br-xl lg:rounded-bl-none">
+                  
+                  <div className="text-center bg-white py-2 px-3 rounded shadow-sm border border-slate-200">
+                    <span className="text-xs text-slate-500 uppercase font-bold">Usage Mensuel</span>
+                    <div className="font-bold text-slate-700 text-xl mt-1">{results[index].fraisUsage.toFixed(0)} <span className="text-sm font-normal">CHF</span></div>
+                  </div>
+
+                  {/* LEASING */}
+                  <div className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
+                    <div className="flex justify-between items-start mb-1">
+                      <div>
+                        <span className="font-bold text-blue-800 text-sm block">Leasing (TCO)</span>
+                        <span className="text-[10px] text-blue-600">Mensuel banque: {results[index].leasing.pmt.toFixed(0)} CHF</span>
                       </div>
                       <span className="text-xl font-black text-blue-700">{results[index].leasing.tco.toFixed(0)} <span className="text-sm font-normal">CHF</span></span>
-                   </div>
-                </div>
+                    </div>
+                  </div>
 
-                {/* CREDIT */}
-                <div className="bg-white border border-emerald-200 rounded-lg p-3 shadow-sm relative overflow-hidden">
-                   <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
-                   <div className="flex justify-between items-start mb-1 pl-2">
+                  {/* CRÉDIT */}
+                  <div className="bg-white border border-emerald-200 rounded-lg p-3 shadow-sm">
+                    <div className="flex justify-between items-start mb-1">
                       <div>
-                        <span className="font-bold text-emerald-800 text-sm block leading-tight">Crédit (TCO)</span>
-                        <span className="text-[10px] text-emerald-600 font-medium">Mens. banque: {results[index].credit.pmt.toFixed(0)}</span>
+                        <span className="font-bold text-emerald-800 text-sm block">Crédit (TCO)</span>
+                        <span className="text-[10px] text-emerald-600">Mensuel banque: {results[index].credit.pmt.toFixed(0)} CHF</span>
                       </div>
                       <span className="text-xl font-black text-emerald-700">{results[index].credit.tco.toFixed(0)} <span className="text-sm font-normal">CHF</span></span>
-                   </div>
-                </div>
+                    </div>
+                  </div>
 
-                {/* COMPTANT */}
-                <div className="bg-white border border-purple-200 rounded-lg p-3 shadow-sm relative overflow-hidden">
-                   <div className="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
-                   <div className="flex justify-between items-start mb-1 pl-2">
+                  {/* COMPTANT */}
+                  <div className="bg-white border border-purple-200 rounded-lg p-3 shadow-sm">
+                    <div className="flex justify-between items-start mb-1">
                       <div>
-                        <span className="font-bold text-purple-800 text-sm block leading-tight">Comptant</span>
-                        <span className="text-[10px] text-purple-600 font-medium">TCO sans intérêts</span>
+                        <span className="font-bold text-purple-800 text-sm block">Comptant</span>
+                        <span className="text-[10px] text-purple-600">TCO sans intérêts</span>
                       </div>
                       <span className="text-xl font-black text-purple-700">{results[index].comptant.tco.toFixed(0)} <span className="text-sm font-normal">CHF</span></span>
-                   </div>
+                    </div>
+                  </div>
                 </div>
-
               </div>
             </div>
           ))}
 
           {/* BOUTON AJOUTER */}
-          <button 
-            onClick={addCar}
-            className="min-w-[300px] shrink-0 snap-center rounded-xl border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 flex flex-col items-center justify-center text-slate-500 hover:text-indigo-600 transition-all group"
-          >
-            <div className="w-16 h-16 bg-slate-100 group-hover:bg-indigo-100 rounded-full flex items-center justify-center mb-4 transition-colors">
-              <Plus className="w-8 h-8" />
-            </div>
-            <span className="font-bold text-lg">Ajouter un véhicule</span>
-            <span className="text-sm mt-1 opacity-70">Comparer une autre offre</span>
-          </button>
-
+          <div className="col-span-1 md:col-span-2 lg:col-span-3 flex justify-center mt-4">
+            <button 
+              onClick={addCar}
+              className="w-full max-w-md rounded-xl border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 flex flex-col items-center justify-center text-slate-500 hover:text-indigo-600 transition-all group p-8"
+            >
+              <div className="w-16 h-16 bg-slate-100 group-hover:bg-indigo-100 rounded-full flex items-center justify-center mb-4 transition-colors">
+                <Plus className="w-8 h-8" />
+              </div>
+              <span className="font-bold text-lg">Ajouter un véhicule</span>
+              <span className="text-sm mt-1 opacity-70">Comparer une autre offre</span>
+            </button>
+          </div>
         </div>
 
       </div>
