@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle, Key, Users, Copy } from 'lucide-react';
+import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle, Key, Users, Copy, X, Maximize2, Download } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -15,6 +15,9 @@ const currentAppId = 'comparateur-auto-local';
 const parseDecimal = (value) => {
   if (typeof value === 'number') return value;
   if (typeof value !== 'string') return 0;
+  
+  // Si la chaîne est vide, retourner 0
+  if (value.trim() === '') return 0;
   
   // Remplacer les virgules par des points (compatibilité avec les deux formats)
   const normalized = value.replace(',', '.');
@@ -35,6 +38,23 @@ const formatDecimal = (value, decimals = 2) => {
   return num.toFixed(decimals); // Utilise le point comme séparateur décimal
 };
 
+// Fonction pour gérer la saisie des nombres (accepte les virgules et points)
+const handleNumberInput = (value, setter) => {
+  // Permettre la suppression complète
+  if (value === '') {
+    setter('');
+    return;
+  }
+  
+  // Remplacer les virgules par des points pour le parsing
+  const normalized = value.replace(',', '.');
+  
+  // Vérifier si c'est un nombre valide
+  if (/^-?\d*\.?\d*$/.test(normalized)) {
+    setter(value); // Garder la valeur telle quelle (avec virgule si l'utilisateur l'a tapée)
+  }
+};
+
 const App = () => {
   // --- ÉTAT AUTH & SAUVEGARDE ---
   const [user, setUser] = useState(null);
@@ -48,6 +68,14 @@ const App = () => {
     return localStorage.getItem('comparateur_shared_code') || 'COMP123';
   });
   const [isCodeValid, setIsCodeValid] = useState(true);
+  const [showLoadButton, setShowLoadButton] = useState(false);
+  
+  // --- ÉTAT MODAL IMAGE ---
+  const [modalImage, setModalImage] = useState({
+    isOpen: false,
+    url: '',
+    title: ''
+  });
 
   // --- PARAMÈTRES GLOBAUX ---
   const [dureeMois, setDureeMois] = useState(48);
@@ -69,6 +97,7 @@ const App = () => {
         commentaire: "",
         prixAchat: 52037,
         apport: 15000,
+        apportCredit: 15000, // Apport spécifique pour le crédit
         tauxLeasing: 0.99,
         valeurResiduelle: 23784,
         assurance: 1500,
@@ -84,6 +113,7 @@ const App = () => {
         commentaire: "",
         prixAchat: 46000,
         apport: 10000,
+        apportCredit: 10000,
         tauxLeasing: 2.9,
         valeurResiduelle: 18000,
         assurance: 1300,
@@ -99,6 +129,7 @@ const App = () => {
         commentaire: "",
         prixAchat: 56000,
         apport: 15000,
+        apportCredit: 15000,
         tauxLeasing: 1.5,
         valeurResiduelle: 26000,
         assurance: 1600,
@@ -119,6 +150,7 @@ const App = () => {
       commentaire: "",
       prixAchat: 52037,
       apport: 15000,
+      apportCredit: 15000,
       tauxLeasing: 0.99,
       valeurResiduelle: 23784,
       assurance: 1500,
@@ -134,6 +166,7 @@ const App = () => {
       commentaire: "",
       prixAchat: 46000,
       apport: 10000,
+      apportCredit: 10000,
       tauxLeasing: 2.9,
       valeurResiduelle: 18000,
       assurance: 1300,
@@ -149,6 +182,7 @@ const App = () => {
       commentaire: "",
       prixAchat: 56000,
       apport: 15000,
+      apportCredit: 15000,
       tauxLeasing: 1.5,
       valeurResiduelle: 26000,
       assurance: 1600,
@@ -163,7 +197,7 @@ const App = () => {
   const updateCar = (index, field, value) => {
     const newCars = [...cars];
     // Utiliser parseDecimal pour les champs numériques
-    const numericFields = ['prixAchat', 'apport', 'tauxLeasing', 'valeurResiduelle', 
+    const numericFields = ['prixAchat', 'apport', 'apportCredit', 'tauxLeasing', 'valeurResiduelle', 
                           'assurance', 'impotCantonal', 'consommation', 'prixCarburant', 'entretien'];
     
     if (numericFields.includes(field)) {
@@ -287,15 +321,16 @@ const App = () => {
       }
       const coutVehiculeLisseLeasing = (car.apport + (pmtLeasing * dureeMois)) / dureeMois;
 
-      // 2. CRÉDIT
+      // 2. CRÉDIT (utilise apportCredit spécifique)
+      const capitalFinanceCredit = car.prixAchat - car.apportCredit;
       const rCredit = (tauxCreditGlobal / 100) / 12;
       let pmtCredit = 0;
       if (rCredit > 0) {
-        pmtCredit = capitalFinance * (rCredit / (1 - Math.pow(1 + rCredit, -dureeMois)));
+        pmtCredit = capitalFinanceCredit * (rCredit / (1 - Math.pow(1 + rCredit, -dureeMois)));
       } else {
-        pmtCredit = capitalFinance / dureeMois;
+        pmtCredit = capitalFinanceCredit / dureeMois;
       }
-      const coutVehiculeLisseCredit = (car.apport + (pmtCredit * dureeMois) - car.valeurResiduelle) / dureeMois;
+      const coutVehiculeLisseCredit = (car.apportCredit + (pmtCredit * dureeMois) - car.valeurResiduelle) / dureeMois;
 
       // 3. COMPTANT
       const coutVehiculeLisseComptant = (car.prixAchat - car.valeurResiduelle) / dureeMois;
@@ -335,11 +370,55 @@ const App = () => {
     setSharedCode(cleanCode);
     localStorage.setItem('comparateur_shared_code', cleanCode);
     setIsCodeValid(true);
+    setShowLoadButton(true); // Montrer le bouton de chargement
+  };
+
+  // Fonction pour charger les données avec le code actuel
+  const loadDataForCurrentCode = () => {
+    const savedData = localStorage.getItem(`comparateur_${sharedCode}`);
+    if (savedData) {
+      try {
+        const data = JSON.parse(savedData);
+        if (data.cars) setCars(data.cars);
+        if (data.dureeMois) setDureeMois(data.dureeMois);
+        if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
+        if (data.parking !== undefined) setParking(data.parking);
+        if (data.vignette !== undefined) setVignette(data.vignette);
+        if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
+        if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
+        if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
+        if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
+        setIsCodeValid(true);
+        setShowLoadButton(false); // Cacher le bouton après chargement
+      } catch (error) {
+        console.warn("Erreur de chargement localStorage:", error);
+      }
+    }
   };
 
   // Fonction pour copier le code dans le presse-papier
   const copyToClipboard = () => {
     navigator.clipboard.writeText(sharedCode);
+  };
+
+  // Fonction pour ouvrir l'image en grand
+  const openImageModal = (url, title) => {
+    if (url && url.trim() !== '') {
+      setModalImage({
+        isOpen: true,
+        url,
+        title
+      });
+    }
+  };
+
+  // Fonction pour fermer la modal
+  const closeImageModal = () => {
+    setModalImage({
+      isOpen: false,
+      url: '',
+      title: ''
+    });
   };
 
   return (
@@ -384,6 +463,16 @@ const App = () => {
                   <Copy className="w-3.5 h-3.5" />
                   Copier
                 </button>
+                {showLoadButton && (
+                  <button
+                    onClick={loadDataForCurrentCode}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 text-sm font-medium transition-colors"
+                    title="Charger les données avec ce code"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Charger
+                  </button>
+                )}
               </div>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5 text-sm">
                 <div className="flex items-center gap-1.5 text-slate-500">
@@ -398,7 +487,7 @@ const App = () => {
               </div>
             </div>
             <div className="mt-2 text-xs text-slate-400">
-              <span className="font-medium">Comment ça marche :</span> Entrez le même code sur votre ordinateur et votre smartphone. Toutes les modifications seront synchronisées automatiquement.
+              <span className="font-medium">Comment ça marche :</span> Entrez le même code sur votre ordinateur et votre smartphone. Toutes les modifications seront synchronisées automatiquement. <strong>Cliquez sur "Charger" après avoir changé le code.</strong>
             </div>
           </div>
           
@@ -645,16 +734,24 @@ const App = () => {
                       placeholder="https://example.com/photo.jpg"
                     />
                     {car.photoUrl && (
-                      <div className="mt-2">
+                      <div className="mt-2 relative">
                         <img 
                           src={car.photoUrl} 
                           alt={car.name}
-                          className="w-full h-32 object-cover rounded-lg border border-slate-200"
+                          className="w-full h-32 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => openImageModal(car.photoUrl, car.name)}
                           onError={(e) => {
                             e.target.style.display = 'none';
                             e.target.parentElement.innerHTML = '<div class="text-xs text-slate-400 italic">Image non disponible</div>';
                           }}
                         />
+                        <button
+                          onClick={() => openImageModal(car.photoUrl, car.name)}
+                          className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full transition-colors"
+                          title="Agrandir l'image"
+                        >
+                          <Maximize2 className="w-4 h-4" />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -686,6 +783,14 @@ const App = () => {
                         <label className="block text-xs text-blue-700">Taux (%)</label>
                         <input type="number" step="0.01" value={car.tauxLeasing} onChange={e => updateCar(index, 'tauxLeasing', e.target.value)} className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold" />
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-lg space-y-2">
+                    <span className="text-xs font-bold text-emerald-800 uppercase">Conditions crédit</span>
+                    <div>
+                      <label className="block text-xs text-emerald-700">Apport crédit (différent du leasing)</label>
+                      <input type="number" step="0.01" value={car.apportCredit} onChange={e => updateCar(index, 'apportCredit', e.target.value)} className="w-full p-1.5 border border-emerald-200 rounded text-sm bg-white" />
                     </div>
                   </div>
 
@@ -787,6 +892,48 @@ const App = () => {
         </div>
 
       </div>
+
+      {/* MODAL D'IMAGE */}
+      {modalImage.isOpen && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="relative max-w-4xl max-h-[90vh] w-full">
+            <button
+              onClick={closeImageModal}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 p-2"
+              title="Fermer"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <div className="bg-white rounded-lg overflow-hidden shadow-2xl">
+              <div className="p-4 bg-slate-800 text-white">
+                <h3 className="font-bold text-lg">{modalImage.title}</h3>
+              </div>
+              <div className="flex items-center justify-center bg-black">
+                <img
+                  src={modalImage.url}
+                  alt={modalImage.title}
+                  className="max-h-[70vh] max-w-full object-contain"
+                  onError={(e) => {
+                    e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjFmMWYxIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiI+SW1hZ2Ugbm9uIGRpc3BvbmlibGU8L3RleHQ+PC9zdmc+';
+                  }}
+                />
+              </div>
+              <div className="p-4 bg-slate-100 flex justify-between items-center">
+                <span className="text-sm text-slate-600 truncate">{modalImage.url}</span>
+                <button
+                  onClick={() => window.open(modalImage.url, '_blank')}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+                  title="Ouvrir dans un nouvel onglet"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                  Ouvrir dans un nouvel onglet
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
