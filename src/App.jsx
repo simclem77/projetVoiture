@@ -375,25 +375,44 @@ const App = () => {
 
   // Fonction pour charger les données avec le code actuel
   const loadDataForCurrentCode = () => {
-    const savedData = localStorage.getItem(`comparateur_${sharedCode}`);
-    if (savedData) {
-      try {
-        const data = JSON.parse(savedData);
-        if (data.cars) setCars(data.cars);
-        if (data.dureeMois) setDureeMois(data.dureeMois);
-        if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
-        if (data.parking !== undefined) setParking(data.parking);
-        if (data.vignette !== undefined) setVignette(data.vignette);
-        if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
-        if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
-        if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
-        if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
-        setIsCodeValid(true);
-        setShowLoadButton(false); // Cacher le bouton après chargement
-      } catch (error) {
-        console.warn("Erreur de chargement localStorage:", error);
+    // Feedback visuel immédiat
+    setIsSaving(true);
+    
+    setTimeout(() => {
+      const savedData = localStorage.getItem(`comparateur_${sharedCode}`);
+      if (savedData) {
+        try {
+          const data = JSON.parse(savedData);
+          if (data.cars) setCars(data.cars);
+          if (data.dureeMois) setDureeMois(data.dureeMois);
+          if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
+          if (data.parking !== undefined) setParking(data.parking);
+          if (data.vignette !== undefined) setVignette(data.vignette);
+          if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
+          if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
+          if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
+          if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
+          setIsCodeValid(true);
+          setShowLoadButton(false); // Cacher le bouton après chargement
+          
+          // Feedback de succès
+          setTimeout(() => {
+            setIsSaving(false);
+            // Forcer un re-render pour s'assurer que tout est à jour
+            window.dispatchEvent(new Event('storage'));
+          }, 500);
+          
+        } catch (error) {
+          console.warn("Erreur de chargement localStorage:", error);
+          setIsSaving(false);
+        }
+      } else {
+        // Aucune donnée trouvée pour ce code
+        setIsSaving(false);
+        setShowLoadButton(false);
+        alert(`Aucune donnée trouvée pour le code "${sharedCode}".\n\nCréez d'abord des données avec ce code sur un autre appareil, ou utilisez un code existant.`);
       }
-    }
+    }, 300); // Petit délai pour le feedback visuel
   };
 
   // Fonction pour copier le code dans le presse-papier
@@ -466,7 +485,7 @@ const App = () => {
                 {showLoadButton && (
                   <button
                     onClick={loadDataForCurrentCode}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 text-sm font-medium transition-colors"
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 text-sm font-medium transition-colors animate-pulse shadow-lg"
                     title="Charger les données avec ce code"
                   >
                     <Download className="w-3.5 h-3.5" />
