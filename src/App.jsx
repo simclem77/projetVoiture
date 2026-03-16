@@ -330,130 +330,163 @@ const App = () => {
           </div>
         </header>
 
-        {/* SYNTHÈSE GRAPHIQUE AMÉLIORÉE */}
+        {/* SYNTHÈSE GRAPHIQUE CORRIGÉE */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-slate-800">
             <BarChart3 className="w-6 h-6 text-indigo-500" /> 
-            Comparaison Visuelle des Véhicules (TCO Mensuel)
+            Comparaison des Modes de Financement
           </h2>
           
-          {/* Sélecteur de mode de financement */}
-          <div className="flex space-x-2 mb-6">
-            <button className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg font-medium text-sm">Leasing</button>
-            <button className="px-4 py-2 bg-emerald-100 text-emerald-800 rounded-lg font-medium text-sm">Crédit ({tauxCreditGlobal}%)</button>
-            <button className="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg font-medium text-sm">Comptant</button>
-          </div>
-
-          {/* Graphique de comparaison */}
-          <div className="space-y-4">
-            {results.map((r, index) => {
-              const tcoLeasing = r.leasing.tco;
-              const tcoCredit = r.credit.tco;
-              const tcoComptant = r.comptant.tco;
-              const maxVehicleTCO = Math.max(tcoLeasing, tcoCredit, tcoComptant);
-              
-              return (
-                <div key={`comparison-${r.id}`} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-slate-700">{r.name}</span>
-                    <div className="flex space-x-4 text-sm">
-                      <span className="text-blue-600 font-medium">{tcoLeasing.toFixed(0)} CHF</span>
-                      <span className="text-emerald-600 font-medium">{tcoCredit.toFixed(0)} CHF</span>
-                      <span className="text-purple-600 font-medium">{tcoComptant.toFixed(0)} CHF</span>
-                    </div>
-                  </div>
+          {/* 3 Graphiques séparés pour chaque mode de financement */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Graphique LEASING */}
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+              <h3 className="font-bold text-blue-800 text-lg mb-4 flex items-center gap-2">
+                <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                Leasing
+              </h3>
+              <div className="space-y-3">
+                {results.map((r, index) => {
+                  const tcoLeasing = r.leasing.tco;
+                  const maxLeasing = Math.max(...results.map(r => r.leasing.tco), 1);
                   
-                  {/* Barres comparatives */}
-                  <div className="flex space-x-1 h-8">
-                    {/* Barre Leasing */}
-                    <div 
-                      className="bg-blue-500 rounded-l-lg transition-all duration-500 hover:bg-blue-600 relative group"
-                      style={{ width: `${(tcoLeasing / maxTCO) * 100}%` }}
-                      title={`Leasing: ${tcoLeasing.toFixed(0)} CHF`}
-                    >
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="text-white text-xs font-bold">{tcoLeasing.toFixed(0)}</span>
+                  return (
+                    <div key={`leasing-${r.id}`} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-slate-700 truncate">{r.name}</span>
+                        <span className="font-bold text-blue-700">{tcoLeasing.toFixed(0)} CHF</span>
+                      </div>
+                      <div className="w-full bg-blue-100 rounded-full h-4 overflow-hidden">
+                        <div 
+                          className="bg-blue-500 h-4 rounded-full transition-all duration-500"
+                          style={{ width: `${(tcoLeasing / maxLeasing) * 100}%` }}
+                          title={`Leasing: ${tcoLeasing.toFixed(0)} CHF`}
+                        ></div>
                       </div>
                     </div>
-                    
-                    {/* Barre Crédit */}
-                    <div 
-                      className="bg-emerald-500 transition-all duration-500 hover:bg-emerald-600 relative group"
-                      style={{ width: `${(tcoCredit / maxTCO) * 100}%` }}
-                      title={`Crédit: ${tcoCredit.toFixed(0)} CHF`}
-                    >
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="text-white text-xs font-bold">{tcoCredit.toFixed(0)}</span>
-                      </div>
-                    </div>
-                    
-                    {/* Barre Comptant */}
-                    <div 
-                      className="bg-purple-500 rounded-r-lg transition-all duration-500 hover:bg-purple-600 relative group"
-                      style={{ width: `${(tcoComptant / maxTCO) * 100}%` }}
-                      title={`Comptant: ${tcoComptant.toFixed(0)} CHF`}
-                    >
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="text-white text-xs font-bold">{tcoComptant.toFixed(0)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Légende détaillée */}
-                  <div className="grid grid-cols-3 gap-2 text-xs text-slate-500 mt-1">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                        <span>Leasing</span>
-                      </div>
-                      <div className="font-bold text-slate-700">{tcoLeasing.toFixed(0)} CHF</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <div className="w-3 h-3 bg-emerald-500 rounded"></div>
-                        <span>Crédit</span>
-                      </div>
-                      <div className="font-bold text-slate-700">{tcoCredit.toFixed(0)} CHF</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <div className="w-3 h-3 bg-purple-500 rounded"></div>
-                        <span>Comptant</span>
-                      </div>
-                      <div className="font-bold text-slate-700">{tcoComptant.toFixed(0)} CHF</div>
-                    </div>
-                  </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 pt-3 border-t border-blue-200 text-center">
+                <div className="text-blue-800 font-bold text-lg">
+                  {(results.reduce((sum, r) => sum + r.leasing.tco, 0) / results.length).toFixed(0)} CHF
                 </div>
-              );
-            })}
+                <div className="text-sm text-blue-600">Moyenne</div>
+              </div>
+            </div>
+            
+            {/* Graphique CRÉDIT */}
+            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4">
+              <h3 className="font-bold text-emerald-800 text-lg mb-4 flex items-center gap-2">
+                <div className="w-3 h-3 bg-emerald-500 rounded"></div>
+                Crédit ({tauxCreditGlobal}%)
+              </h3>
+              <div className="space-y-3">
+                {results.map((r, index) => {
+                  const tcoCredit = r.credit.tco;
+                  const maxCredit = Math.max(...results.map(r => r.credit.tco), 1);
+                  
+                  return (
+                    <div key={`credit-${r.id}`} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-slate-700 truncate">{r.name}</span>
+                        <span className="font-bold text-emerald-700">{tcoCredit.toFixed(0)} CHF</span>
+                      </div>
+                      <div className="w-full bg-emerald-100 rounded-full h-4 overflow-hidden">
+                        <div 
+                          className="bg-emerald-500 h-4 rounded-full transition-all duration-500"
+                          style={{ width: `${(tcoCredit / maxCredit) * 100}%` }}
+                          title={`Crédit: ${tcoCredit.toFixed(0)} CHF`}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 pt-3 border-t border-emerald-200 text-center">
+                <div className="text-emerald-800 font-bold text-lg">
+                  {(results.reduce((sum, r) => sum + r.credit.tco, 0) / results.length).toFixed(0)} CHF
+                </div>
+                <div className="text-sm text-emerald-600">Moyenne</div>
+              </div>
+            </div>
+            
+            {/* Graphique COMPTANT */}
+            <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
+              <h3 className="font-bold text-purple-800 text-lg mb-4 flex items-center gap-2">
+                <div className="w-3 h-3 bg-purple-500 rounded"></div>
+                Comptant
+              </h3>
+              <div className="space-y-3">
+                {results.map((r, index) => {
+                  const tcoComptant = r.comptant.tco;
+                  const maxComptant = Math.max(...results.map(r => r.comptant.tco), 1);
+                  
+                  return (
+                    <div key={`comptant-${r.id}`} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium text-slate-700 truncate">{r.name}</span>
+                        <span className="font-bold text-purple-700">{tcoComptant.toFixed(0)} CHF</span>
+                      </div>
+                      <div className="w-full bg-purple-100 rounded-full h-4 overflow-hidden">
+                        <div 
+                          className="bg-purple-500 h-4 rounded-full transition-all duration-500"
+                          style={{ width: `${(tcoComptant / maxComptant) * 100}%` }}
+                          title={`Comptant: ${tcoComptant.toFixed(0)} CHF`}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 pt-3 border-t border-purple-200 text-center">
+                <div className="text-purple-800 font-bold text-lg">
+                  {(results.reduce((sum, r) => sum + r.comptant.tco, 0) / results.length).toFixed(0)} CHF
+                </div>
+                <div className="text-sm text-purple-600">Moyenne</div>
+              </div>
+            </div>
           </div>
           
-          {/* Résumé statistique */}
+          {/* Comparaison directe (optionnelle) */}
           {results.length > 0 && (
             <div className="mt-8 pt-6 border-t border-slate-200">
-              <h3 className="font-bold text-slate-700 mb-3">Résumé des coûts</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="text-blue-800 font-bold text-lg">Leasing</div>
-                  <div className="text-2xl font-black text-blue-700 mt-1">
-                    {(results.reduce((sum, r) => sum + r.leasing.tco, 0) / results.length).toFixed(0)} CHF
-                  </div>
-                  <div className="text-sm text-blue-600 mt-1">Moyenne par véhicule</div>
-                </div>
-                <div className="bg-emerald-50 p-4 rounded-lg">
-                  <div className="text-emerald-800 font-bold text-lg">Crédit</div>
-                  <div className="text-2xl font-black text-emerald-700 mt-1">
-                    {(results.reduce((sum, r) => sum + r.credit.tco, 0) / results.length).toFixed(0)} CHF
-                  </div>
-                  <div className="text-sm text-emerald-600 mt-1">Moyenne par véhicule</div>
-                </div>
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <div className="text-purple-800 font-bold text-lg">Comptant</div>
-                  <div className="text-2xl font-black text-purple-700 mt-1">
-                    {(results.reduce((sum, r) => sum + r.comptant.tco, 0) / results.length).toFixed(0)} CHF
-                  </div>
-                  <div className="text-sm text-purple-600 mt-1">Moyenne par véhicule</div>
-                </div>
+              <h3 className="font-bold text-slate-700 mb-4">Comparaison Directe</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="text-left py-2 font-medium text-slate-500">Véhicule</th>
+                      <th className="text-right py-2 font-medium text-blue-600">Leasing</th>
+                      <th className="text-right py-2 font-medium text-emerald-600">Crédit</th>
+                      <th className="text-right py-2 font-medium text-purple-600">Comptant</th>
+                      <th className="text-right py-2 font-medium text-slate-600">Différence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {results.map((r, index) => {
+                      const tcoLeasing = r.leasing.tco;
+                      const tcoCredit = r.credit.tco;
+                      const tcoComptant = r.comptant.tco;
+                      const minTCO = Math.min(tcoLeasing, tcoCredit, tcoComptant);
+                      
+                      return (
+                        <tr key={`table-${r.id}`} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="py-2 font-medium text-slate-700">{r.name}</td>
+                          <td className="text-right py-2 font-bold text-blue-700">{tcoLeasing.toFixed(0)}</td>
+                          <td className="text-right py-2 font-bold text-emerald-700">{tcoCredit.toFixed(0)}</td>
+                          <td className="text-right py-2 font-bold text-purple-700">{tcoComptant.toFixed(0)}</td>
+                          <td className="text-right py-2 text-slate-600">
+                            {minTCO === tcoLeasing && "✓ Leasing"}
+                            {minTCO === tcoCredit && "✓ Crédit"}
+                            {minTCO === tcoComptant && "✓ Comptant"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -522,13 +555,6 @@ const App = () => {
                 </button>
               </div>
 
-              {/* Badge % valeur résiduelle */}
-              {car.prixAchat > 0 && (
-                <div className="absolute top-4 right-4 bg-indigo-500 text-white text-xs font-bold px-2 py-1 rounded-full z-10">
-                  {((car.valeurResiduelle / car.prixAchat) * 100).toFixed(1)}% résiduel
-                </div>
-              )}
-
               {/* Contenu en 2 colonnes : Formulaire + Résultats */}
               <div className="flex flex-col lg:flex-row flex-grow">
                 {/* Colonne GAUCHE : Formulaire */}
@@ -553,7 +579,14 @@ const App = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase">Valeur Résiduelle (CHF)</label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-xs font-semibold text-slate-500 uppercase">Valeur Résiduelle (CHF)</label>
+                      {car.prixAchat > 0 && (
+                        <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
+                          {((car.valeurResiduelle / car.prixAchat) * 100).toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
                     <input type="text" value={car.valeurResiduelle} onChange={e => updateCar(index, 'valeurResiduelle', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg text-sm" />
                   </div>
 
