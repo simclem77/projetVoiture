@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle } from 'lucide-react';
+import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle, Key, Users, Copy } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // --- Configuration Firebase (Compatible Canvas & Netlify/Vite/CRA) ---
@@ -59,6 +59,13 @@ const App = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [saveError, setSaveError] = useState(false);
+  
+  // --- SYSTÈME DE CODE PARTAGÉ ---
+  const [sharedCode, setSharedCode] = useState(() => {
+    // Récupérer le code depuis le localStorage s'il existe
+    return localStorage.getItem('comparateur_shared_code') || 'COMP123';
+  });
+  const [isCodeValid, setIsCodeValid] = useState(true);
 
   // --- PARAMÈTRES GLOBAUX ---
   const [dureeMois, setDureeMois] = useState(48);
@@ -159,11 +166,7 @@ const App = () => {
     
     const initAuth = async () => {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
+        await signInAnonymously(auth);
       } catch (error) {
         console.error("Erreur d'authentification :", error);
       }
@@ -174,10 +177,12 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (!user || !db) return;
-    const userDocRef = doc(db, 'artifacts', currentAppId, 'users', user.uid, 'simulations', 'my_comparison');
+    if (!user || !db || !sharedCode) return;
+    
+    // Utiliser le code partagé comme chemin dans Firebase
+    const sharedDocRef = doc(db, 'artifacts', currentAppId, 'shared', sharedCode, 'simulation');
 
-    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+    const unsubscribe = onSnapshot(sharedDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.cars) setCars(data.cars);
@@ -186,19 +191,24 @@ const App = () => {
         if (data.parking !== undefined) setParking(data.parking);
         if (data.vignette !== undefined) setVignette(data.vignette);
         if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
+        if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
+        if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
         if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
+        setIsCodeValid(true);
       } else {
         // Si le document n'existe pas, utiliser les données par défaut
         setCars(defaultCars);
+        setIsCodeValid(true);
       }
     }, (error) => {
        console.error("Erreur de synchronisation :", error);
        // En cas d'erreur, utiliser les données par défaut
        setCars(defaultCars);
+       setIsCodeValid(false);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, sharedCode]);
 
   // Utiliser les données par défaut si Firebase n'est pas configuré
   useEffect(() => {
@@ -213,23 +223,27 @@ const App = () => {
       setTimeout(() => setSaveError(false), 4000);
       return;
     }
-    if (!user || !db) return;
+    if (!user || !db || !sharedCode) return;
     
     setIsSaving(true);
     try {
-      const userDocRef = doc(db, 'artifacts', currentAppId, 'users', user.uid, 'simulations', 'my_comparison');
-      await setDoc(userDocRef, {
+      const sharedDocRef = doc(db, 'artifacts', currentAppId, 'shared', sharedCode, 'simulation');
+      await setDoc(sharedDocRef, {
         cars,
         dureeMois,
         kmAnnuel,
         parking,
         vignette,
         tauxCreditGlobal,
+        inflationAnnuelle,
+        tauxPlacement,
         updatedAt: new Date().toISOString()
       });
       setLastSaved(new Date());
+      setIsCodeValid(true);
     } catch (error) {
       console.error("Erreur de sauvegarde :", error);
+      setIsCodeValid(false);
     }
     setIsSaving(false);
   };
@@ -293,6 +307,19 @@ const App = () => {
   // Trouver le max pour le graphique
   const maxTCO = Math.max(...results.map(r => Math.max(r.leasing.tco, r.credit.tco, r.comptant.tco)), 1);
 
+  // Fonction pour mettre à jour le code partagé
+  const updateSharedCode = (newCode) => {
+    const cleanCode = newCode.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 8);
+    setSharedCode(cleanCode);
+    localStorage.setItem('comparateur_shared_code', cleanCode);
+    setIsCodeValid(true);
+  };
+
+  // Fonction pour copier le code dans le presse-papier
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(sharedCode);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 p-4 font-sans text-slate-800">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -304,6 +331,53 @@ const App = () => {
               Comparateur Multi-Véhicules
             </h1>
             <p className="text-slate-500 mt-2">Comparez les offres et trouvez le véhicule le plus adapté à votre budget.</p>
+            
+            {/* Section Code Partagé */}
+            <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-indigo-500" />
+                <span className="text-sm font-medium text-slate-700">Code de partage :</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={sharedCode}
+                    onChange={(e) => updateSharedCode(e.target.value)}
+                    className={`px-3 py-1.5 border ${isCodeValid ? 'border-slate-300' : 'border-red-300'} rounded-lg font-mono font-bold text-indigo-700 bg-white text-center w-32`}
+                    maxLength={8}
+                    placeholder="COMP123"
+                  />
+                  {!isCodeValid && (
+                    <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs">!</span>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={copyToClipboard}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1.5 text-sm font-medium transition-colors"
+                  title="Copier le code"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  Copier
+                </button>
+              </div>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5 text-sm">
+                <div className="flex items-center gap-1.5 text-slate-500">
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Même code sur tous vos appareils</span>
+                </div>
+                {!isCodeValid && (
+                  <span className="text-red-500 text-xs font-medium bg-red-50 px-2 py-1 rounded">
+                    Erreur de connexion
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-slate-400">
+              <span className="font-medium">Comment ça marche :</span> Entrez le même code sur votre ordinateur et votre smartphone. Toutes les modifications seront synchronisées automatiquement.
+            </div>
           </div>
           
           <div className="flex flex-col items-end">
@@ -330,166 +404,145 @@ const App = () => {
           </div>
         </header>
 
-        {/* SYNTHÈSE GRAPHIQUE CORRIGÉE */}
+        {/* SYNTHÈSE GRAPHIQUE UNIFIÉE */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-slate-800">
             <BarChart3 className="w-6 h-6 text-indigo-500" /> 
-            Comparaison des Modes de Financement
+            Comparaison des Coûts Mensuels (Tous Modes)
           </h2>
           
-          {/* 3 Graphiques séparés pour chaque mode de financement */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Graphique LEASING */}
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-              <h3 className="font-bold text-blue-800 text-lg mb-4 flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                Leasing
-              </h3>
-              <div className="space-y-3">
-                {results.map((r, index) => {
-                  const tcoLeasing = r.leasing.tco;
-                  const maxLeasing = Math.max(...results.map(r => r.leasing.tco), 1);
-                  
-                  return (
-                    <div key={`leasing-${r.id}`} className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium text-slate-700 truncate">{r.name}</span>
-                        <span className="font-bold text-blue-700">{tcoLeasing.toFixed(0)} CHF</span>
-                      </div>
-                      <div className="w-full bg-blue-100 rounded-full h-4 overflow-hidden">
-                        <div 
-                          className="bg-blue-500 h-4 rounded-full transition-all duration-500"
-                          style={{ width: `${(tcoLeasing / maxLeasing) * 100}%` }}
-                          title={`Leasing: ${tcoLeasing.toFixed(0)} CHF`}
-                        ></div>
-                      </div>
-                    </div>
-                  );
-                })}
+          {/* Graphique unifié avec toutes les barres */}
+          <div className="space-y-6">
+            {/* Légende */}
+            <div className="flex flex-wrap gap-4 justify-center">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                <span className="text-sm font-medium text-slate-700">Leasing</span>
               </div>
-              <div className="mt-4 pt-3 border-t border-blue-200 text-center">
-                <div className="text-blue-800 font-bold text-lg">
-                  {(results.reduce((sum, r) => sum + r.leasing.tco, 0) / results.length).toFixed(0)} CHF
-                </div>
-                <div className="text-sm text-blue-600">Moyenne</div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-emerald-500 rounded"></div>
+                <span className="text-sm font-medium text-slate-700">Crédit ({tauxCreditGlobal}%)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-purple-500 rounded"></div>
+                <span className="text-sm font-medium text-slate-700">Comptant</span>
               </div>
             </div>
             
-            {/* Graphique CRÉDIT */}
-            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4">
-              <h3 className="font-bold text-emerald-800 text-lg mb-4 flex items-center gap-2">
-                <div className="w-3 h-3 bg-emerald-500 rounded"></div>
-                Crédit ({tauxCreditGlobal}%)
-              </h3>
-              <div className="space-y-3">
-                {results.map((r, index) => {
-                  const tcoCredit = r.credit.tco;
-                  const maxCredit = Math.max(...results.map(r => r.credit.tco), 1);
-                  
-                  return (
-                    <div key={`credit-${r.id}`} className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium text-slate-700 truncate">{r.name}</span>
-                        <span className="font-bold text-emerald-700">{tcoCredit.toFixed(0)} CHF</span>
-                      </div>
-                      <div className="w-full bg-emerald-100 rounded-full h-4 overflow-hidden">
-                        <div 
-                          className="bg-emerald-500 h-4 rounded-full transition-all duration-500"
-                          style={{ width: `${(tcoCredit / maxCredit) * 100}%` }}
-                          title={`Crédit: ${tcoCredit.toFixed(0)} CHF`}
-                        ></div>
-                      </div>
-                    </div>
+            {/* Graphique principal */}
+            <div className="space-y-4">
+              {(() => {
+                // Créer un tableau plat avec toutes les données
+                const allData = [];
+                results.forEach(r => {
+                  allData.push(
+                    { type: 'leasing', vehicle: r.name, value: r.leasing.tco, color: 'bg-blue-500', textColor: 'text-blue-700' },
+                    { type: 'credit', vehicle: r.name, value: r.credit.tco, color: 'bg-emerald-500', textColor: 'text-emerald-700' },
+                    { type: 'comptant', vehicle: r.name, value: r.comptant.tco, color: 'bg-purple-500', textColor: 'text-purple-700' }
                   );
-                })}
-              </div>
-              <div className="mt-4 pt-3 border-t border-emerald-200 text-center">
-                <div className="text-emerald-800 font-bold text-lg">
-                  {(results.reduce((sum, r) => sum + r.credit.tco, 0) / results.length).toFixed(0)} CHF
-                </div>
-                <div className="text-sm text-emerald-600">Moyenne</div>
-              </div>
+                });
+                
+                // Trier par valeur croissante
+                allData.sort((a, b) => a.value - b.value);
+                
+                // Trouver la valeur max pour l'échelle
+                const maxValue = Math.max(...allData.map(d => d.value), 1);
+                
+                return allData.map((item, index) => (
+                  <div key={`unified-${index}`} className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 ${item.color} rounded`}></div>
+                        <span className="font-medium text-slate-700 text-sm">
+                          {item.vehicle} - {item.type === 'leasing' ? 'Leasing' : item.type === 'credit' ? 'Crédit' : 'Comptant'}
+                        </span>
+                      </div>
+                      <span className={`font-bold ${item.textColor} text-sm`}>{item.value.toFixed(0)} CHF</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
+                      <div 
+                        className={`${item.color} h-4 rounded-full transition-all duration-500`}
+                        style={{ width: `${(item.value / maxValue) * 100}%` }}
+                        title={`${item.vehicle} - ${item.type === 'leasing' ? 'Leasing' : item.type === 'credit' ? 'Crédit' : 'Comptant'}: ${item.value.toFixed(0)} CHF`}
+                      ></div>
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
             
-            {/* Graphique COMPTANT */}
-            <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
-              <h3 className="font-bold text-purple-800 text-lg mb-4 flex items-center gap-2">
-                <div className="w-3 h-3 bg-purple-500 rounded"></div>
-                Comptant
-              </h3>
-              <div className="space-y-3">
-                {results.map((r, index) => {
-                  const tcoComptant = r.comptant.tco;
-                  const maxComptant = Math.max(...results.map(r => r.comptant.tco), 1);
-                  
-                  return (
-                    <div key={`comptant-${r.id}`} className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium text-slate-700 truncate">{r.name}</span>
-                        <span className="font-bold text-purple-700">{tcoComptant.toFixed(0)} CHF</span>
-                      </div>
-                      <div className="w-full bg-purple-100 rounded-full h-4 overflow-hidden">
-                        <div 
-                          className="bg-purple-500 h-4 rounded-full transition-all duration-500"
-                          style={{ width: `${(tcoComptant / maxComptant) * 100}%` }}
-                          title={`Comptant: ${tcoComptant.toFixed(0)} CHF`}
-                        ></div>
-                      </div>
+            {/* Résumé statistique */}
+            {results.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-slate-200">
+                <h3 className="font-bold text-slate-700 mb-4">Résumé par Mode de Financement</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="text-blue-800 font-bold text-lg">Leasing</div>
+                    <div className="text-2xl font-black text-blue-700 mt-1">
+                      {(results.reduce((sum, r) => sum + r.leasing.tco, 0) / results.length).toFixed(0)} CHF
                     </div>
-                  );
-                })}
-              </div>
-              <div className="mt-4 pt-3 border-t border-purple-200 text-center">
-                <div className="text-purple-800 font-bold text-lg">
-                  {(results.reduce((sum, r) => sum + r.comptant.tco, 0) / results.length).toFixed(0)} CHF
+                    <div className="text-sm text-blue-600 mt-1">Moyenne mensuelle</div>
+                  </div>
+                  <div className="bg-emerald-50 p-4 rounded-lg">
+                    <div className="text-emerald-800 font-bold text-lg">Crédit</div>
+                    <div className="text-2xl font-black text-emerald-700 mt-1">
+                      {(results.reduce((sum, r) => sum + r.credit.tco, 0) / results.length).toFixed(0)} CHF
+                    </div>
+                    <div className="text-sm text-emerald-600 mt-1">Moyenne mensuelle</div>
+                  </div>
+                  <div className="bg-purple-50 p-4 rounded-lg">
+                    <div className="text-purple-800 font-bold text-lg">Comptant</div>
+                    <div className="text-2xl font-black text-purple-700 mt-1">
+                      {(results.reduce((sum, r) => sum + r.comptant.tco, 0) / results.length).toFixed(0)} CHF
+                    </div>
+                    <div className="text-sm text-purple-600 mt-1">Moyenne mensuelle</div>
+                  </div>
                 </div>
-                <div className="text-sm text-purple-600">Moyenne</div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Comparaison directe (optionnelle) */}
-          {results.length > 0 && (
-            <div className="mt-8 pt-6 border-t border-slate-200">
-              <h3 className="font-bold text-slate-700 mb-4">Comparaison Directe</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200">
-                      <th className="text-left py-2 font-medium text-slate-500">Véhicule</th>
-                      <th className="text-right py-2 font-medium text-blue-600">Leasing</th>
-                      <th className="text-right py-2 font-medium text-emerald-600">Crédit</th>
-                      <th className="text-right py-2 font-medium text-purple-600">Comptant</th>
-                      <th className="text-right py-2 font-medium text-slate-600">Différence</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {results.map((r, index) => {
-                      const tcoLeasing = r.leasing.tco;
-                      const tcoCredit = r.credit.tco;
-                      const tcoComptant = r.comptant.tco;
-                      const minTCO = Math.min(tcoLeasing, tcoCredit, tcoComptant);
-                      
-                      return (
-                        <tr key={`table-${r.id}`} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="py-2 font-medium text-slate-700">{r.name}</td>
-                          <td className="text-right py-2 font-bold text-blue-700">{tcoLeasing.toFixed(0)}</td>
-                          <td className="text-right py-2 font-bold text-emerald-700">{tcoCredit.toFixed(0)}</td>
-                          <td className="text-right py-2 font-bold text-purple-700">{tcoComptant.toFixed(0)}</td>
-                          <td className="text-right py-2 text-slate-600">
-                            {minTCO === tcoLeasing && "✓ Leasing"}
-                            {minTCO === tcoCredit && "✓ Crédit"}
-                            {minTCO === tcoComptant && "✓ Comptant"}
-                          </td>
+                
+                {/* Meilleure option par véhicule */}
+                <div className="mt-6">
+                  <h4 className="font-bold text-slate-700 mb-3">Meilleure Option par Véhicule</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="text-left py-2 font-medium text-slate-500">Véhicule</th>
+                          <th className="text-right py-2 font-medium text-slate-500">Leasing</th>
+                          <th className="text-right py-2 font-medium text-slate-500">Crédit</th>
+                          <th className="text-right py-2 font-medium text-slate-500">Comptant</th>
+                          <th className="text-right py-2 font-medium text-slate-500">Meilleur choix</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {results.map((r, index) => {
+                          const tcoLeasing = r.leasing.tco;
+                          const tcoCredit = r.credit.tco;
+                          const tcoComptant = r.comptant.tco;
+                          const minTCO = Math.min(tcoLeasing, tcoCredit, tcoComptant);
+                          const bestType = minTCO === tcoLeasing ? 'leasing' : minTCO === tcoCredit ? 'credit' : 'comptant';
+                          const bestColor = bestType === 'leasing' ? 'text-blue-600' : bestType === 'credit' ? 'text-emerald-600' : 'text-purple-600';
+                          
+                          return (
+                            <tr key={`best-${r.id}`} className="border-b border-slate-100 hover:bg-slate-50">
+                              <td className="py-2 font-medium text-slate-700">{r.name}</td>
+                              <td className={`text-right py-2 font-bold ${minTCO === tcoLeasing ? 'text-blue-700' : 'text-slate-600'}`}>{tcoLeasing.toFixed(0)}</td>
+                              <td className={`text-right py-2 font-bold ${minTCO === tcoCredit ? 'text-emerald-700' : 'text-slate-600'}`}>{tcoCredit.toFixed(0)}</td>
+                              <td className={`text-right py-2 font-bold ${minTCO === tcoComptant ? 'text-purple-700' : 'text-slate-600'}`}>{tcoComptant.toFixed(0)}</td>
+                              <td className={`text-right py-2 font-bold ${bestColor}`}>
+                                {bestType === 'leasing' && 'Leasing'}
+                                {bestType === 'credit' && 'Crédit'}
+                                {bestType === 'comptant' && 'Comptant'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* PARAMÈTRES GLOBAUX */}
@@ -500,31 +553,31 @@ const App = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Durée (mois)</label>
-               <input type="text" value={dureeMois} onChange={e => setDureeMois(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
+               <input type="number" value={dureeMois} onChange={e => setDureeMois(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Km annuel</label>
-               <input type="text" value={kmAnnuel} onChange={e => setKmAnnuel(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
+               <input type="number" value={kmAnnuel} onChange={e => setKmAnnuel(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Parking /mois</label>
-               <input type="text" value={parking} onChange={e => setParking(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
+               <input type="number" step="0.01" value={parking} onChange={e => setParking(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Vignette /an</label>
-               <input type="text" value={vignette} onChange={e => setVignette(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
+               <input type="number" value={vignette} onChange={e => setVignette(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
              </div>
              <div className="col-span-1 border-l border-slate-200 pl-4">
                <label className="block text-xs font-bold text-emerald-600">Crédit (%)</label>
-               <input type="text" value={formatDecimal(tauxCreditGlobal, 2)} onChange={e => setTauxCreditGlobal(parseDecimal(e.target.value))} className="w-full p-2 border border-emerald-300 rounded-md bg-emerald-50 text-emerald-900 font-bold" />
+               <input type="number" step="0.01" value={tauxCreditGlobal} onChange={e => setTauxCreditGlobal(parseDecimal(e.target.value))} className="w-full p-2 border border-emerald-300 rounded-md bg-emerald-50 text-emerald-900 font-bold" />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-amber-600">Inflation (%)</label>
-               <input type="text" value={formatDecimal(inflationAnnuelle, 2)} onChange={e => setInflationAnnuelle(parseDecimal(e.target.value))} className="w-full p-2 border border-amber-300 rounded-md bg-amber-50 text-amber-900" />
+               <input type="number" step="0.01" value={inflationAnnuelle} onChange={e => setInflationAnnuelle(parseDecimal(e.target.value))} className="w-full p-2 border border-amber-300 rounded-md bg-amber-50 text-amber-900" />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-cyan-600">Placement (%)</label>
-               <input type="text" value={formatDecimal(tauxPlacement, 2)} onChange={e => setTauxPlacement(parseDecimal(e.target.value))} className="w-full p-2 border border-cyan-300 rounded-md bg-cyan-50 text-cyan-900" />
+               <input type="number" step="0.01" value={tauxPlacement} onChange={e => setTauxPlacement(parseDecimal(e.target.value))} className="w-full p-2 border border-cyan-300 rounded-md bg-cyan-50 text-cyan-900" />
              </div>
           </div>
         </div>
@@ -561,7 +614,7 @@ const App = () => {
                 <div className="lg:w-1/2 p-4 space-y-3 border-r border-slate-100">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase">Prix TTC (CHF)</label>
-                    <input type="text" value={car.prixAchat} onChange={e => updateCar(index, 'prixAchat', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50" />
+                    <input type="number" step="0.01" value={car.prixAchat} onChange={e => updateCar(index, 'prixAchat', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50" />
                   </div>
                   
                   <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg space-y-2">
@@ -569,11 +622,11 @@ const App = () => {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-xs text-blue-700">Apport</label>
-                        <input type="text" value={car.apport} onChange={e => updateCar(index, 'apport', e.target.value)} className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white" />
+                        <input type="number" step="0.01" value={car.apport} onChange={e => updateCar(index, 'apport', e.target.value)} className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white" />
                       </div>
                       <div>
                         <label className="block text-xs text-blue-700">Taux (%)</label>
-                        <input type="text" value={formatDecimal(car.tauxLeasing, 2)} onChange={e => updateCar(index, 'tauxLeasing', e.target.value)} className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold" />
+                        <input type="number" step="0.01" value={car.tauxLeasing} onChange={e => updateCar(index, 'tauxLeasing', e.target.value)} className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold" />
                       </div>
                     </div>
                   </div>
@@ -587,31 +640,31 @@ const App = () => {
                         </span>
                       )}
                     </div>
-                    <input type="text" value={car.valeurResiduelle} onChange={e => updateCar(index, 'valeurResiduelle', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg text-sm" />
+                    <input type="number" step="0.01" value={car.valeurResiduelle} onChange={e => updateCar(index, 'valeurResiduelle', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg text-sm" />
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase">Assurance</label>
-                      <input type="text" value={car.assurance} onChange={e => updateCar(index, 'assurance', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                      <input type="number" step="0.01" value={car.assurance} onChange={e => updateCar(index, 'assurance', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase">Impôt</label>
-                      <input type="text" value={car.impotCantonal} onChange={e => updateCar(index, 'impotCantonal', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                      <input type="number" step="0.01" value={car.impotCantonal} onChange={e => updateCar(index, 'impotCantonal', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase">Entretien</label>
-                      <input type="text" value={car.entretien} onChange={e => updateCar(index, 'entretien', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                      <input type="number" step="0.01" value={car.entretien} onChange={e => updateCar(index, 'entretien', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso</label>
-                      <input type="text" value={formatDecimal(car.consommation, 1)} onChange={e => updateCar(index, 'consommation', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                      <input type="number" step="0.1" value={car.consommation} onChange={e => updateCar(index, 'consommation', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase">Prix carburant/énergie (CHF)</label>
-                    <input type="text" value={formatDecimal(car.prixCarburant, 2)} onChange={e => updateCar(index, 'prixCarburant', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                    <input type="number" step="0.01" value={car.prixCarburant} onChange={e => updateCar(index, 'prixCarburant', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
                   </div>
                 </div>
 
