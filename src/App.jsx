@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle, Key, Users, Copy, X, Maximize2, Download } from 'lucide-react';
+import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle, Key, Users, Copy, X, Maximize2, Download, Database, Wifi, WifiOff } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { fetchData, saveData, checkHealth, processSyncQueue, isOnline, getQueueSize } from './api';
 
 // --- Configuration pour Raspberry Pi (Mode local uniquement) ---
 const isFirebaseValid = false; // Désactivé pour Raspberry Pi
@@ -61,6 +62,8 @@ const App = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [saveError, setSaveError] = useState(false);
+  const [apiHealth, setApiHealth] = useState(false);
+  const [queueSize, setQueueSize] = useState(0);
   
   // --- SYSTÈME DE CODE PARTAGÉ ---
   const [sharedCode, setSharedCode] = useState(() => {
@@ -272,16 +275,53 @@ const App = () => {
         updatedAt: new Date().toISOString()
       };
       
-      localStorage.setItem(`comparateur_${sharedCode}`, JSON.stringify(data));
-      setLastSaved(new Date());
-      setIsCodeValid(true);
-    }, 500); // Délai de 500ms pour éviter de sauvegarder à chaque frappe
+      // Sauvegarde dans l'API SQLite
+      saveData(sharedCode, data).then(result => {
+        if (result.success) {
+          setLastSaved(new Date());
+          setIsCodeValid(true);
+          if (result.queued) {
+            setQueueSize(getQueueSize());
+          }
+        }
+      }).catch(error => {
+        console.warn('Erreur sauvegarde auto:', error);
+      });
+      
+    }, 2000); // Délai de 2s pour éviter trop de requêtes
 
     return () => clearTimeout(saveTimeout);
   }, [cars, dureeMois, kmAnnuel, parking, vignette, tauxCreditGlobal, inflationAnnuelle, tauxPlacement, sharedCode]);
 
-  const saveData = () => {
-    // Sauvegarde manuelle instantanée
+  // Vérifier la santé de l'API au démarrage
+  useEffect(() => {
+    checkHealth().then(healthy => {
+      setApiHealth(healthy);
+      if (healthy) {
+        processSyncQueue().then(result => {
+          if (result.processed > 0) {
+            setQueueSize(result.remaining);
+          }
+        });
+      }
+    });
+    
+    // Vérifier périodiquement
+    const healthInterval = setInterval(() => {
+      checkHealth().then(setApiHealth);
+    }, 30000); // Toutes les 30 secondes
+    
+    return () => clearInterval(healthInterval);
+  }, []);
+
+  // Mettre à jour la taille de la queue
+  useEffect(() => {
+    setQueueSize(getQueueSize());
+  }, [cars, sharedCode]);
+
+  const saveDataToServer = async () => {
+    setIsSaving(true);
+    
     const data = {
       cars,
       dureeMois,
@@ -295,13 +335,30 @@ const App = () => {
       updatedAt: new Date().toISOString()
     };
     
-    localStorage.setItem(`comparateur_${sharedCode}`, JSON.stringify(data));
-    setLastSaved(new Date());
-    setIsCodeValid(true);
-    
-    // Feedback visuel
-    setIsSaving(true);
-    setTimeout(() => setIsSaving(false), 1000);
+    try {
+      const result = await saveData(sharedCode, data);
+      
+      if (result.success) {
+        setLastSaved(new Date());
+        setIsCodeValid(true);
+        
+        if (result.queued) {
+          setQueueSize(getQueueSize());
+          alert('📱 Données mises en queue pour synchronisation (mode hors ligne)');
+        } else {
+          alert('✅ Données sauvegardées sur le serveur SQLite !');
+        }
+      } else {
+        setSaveError(true);
+        alert('❌ Erreur de sauvegarde. Vérifiez la connexion au serveur.');
+      }
+    } catch (error) {
+      console.error('Erreur sauvegarde:', error);
+      setSaveError(true);
+      alert('❌ Erreur de sauvegarde: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // --- MOTEUR DE CALCUL ---
@@ -374,45 +431,38 @@ const App = () => {
   };
 
   // Fonction pour charger les données avec le code actuel
-  const loadDataForCurrentCode = () => {
+  const loadDataForCurrentCode = async () => {
     // Feedback visuel immédiat
     setIsSaving(true);
     
-    setTimeout(() => {
-      const savedData = localStorage.getItem(`comparateur_${sharedCode}`);
-      if (savedData) {
-        try {
-          const data = JSON.parse(savedData);
-          if (data.cars) setCars(data.cars);
-          if (data.dureeMois) setDureeMois(data.dureeMois);
-          if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
-          if (data.parking !== undefined) setParking(data.parking);
-          if (data.vignette !== undefined) setVignette(data.vignette);
-          if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
-          if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
-          if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
-          if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
-          setIsCodeValid(true);
-          setShowLoadButton(false); // Cacher le bouton après chargement
-          
-          // Feedback de succès
-          setTimeout(() => {
-            setIsSaving(false);
-            // Forcer un re-render pour s'assurer que tout est à jour
-            window.dispatchEvent(new Event('storage'));
-          }, 500);
-          
-        } catch (error) {
-          console.warn("Erreur de chargement localStorage:", error);
-          setIsSaving(false);
-        }
+    try {
+      const data = await fetchData(sharedCode);
+      
+      if (data) {
+        if (data.cars) setCars(data.cars);
+        if (data.dureeMois) setDureeMois(data.dureeMois);
+        if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
+        if (data.parking !== undefined) setParking(data.parking);
+        if (data.vignette !== undefined) setVignette(data.vignette);
+        if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
+        if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
+        if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
+        if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
+        setIsCodeValid(true);
+        setShowLoadButton(false); // Cacher le bouton après chargement
+        
+        alert(`✅ Données chargées depuis le serveur SQLite pour le code "${sharedCode}"`);
       } else {
         // Aucune donnée trouvée pour ce code
-        setIsSaving(false);
-        setShowLoadButton(false);
         alert(`Aucune donnée trouvée pour le code "${sharedCode}".\n\nCréez d'abord des données avec ce code sur un autre appareil, ou utilisez un code existant.`);
       }
-    }, 300); // Petit délai pour le feedback visuel
+    } catch (error) {
+      console.warn("Erreur de chargement API:", error);
+      alert(`❌ Erreur de chargement: ${error.message}\n\nVérifiez la connexion au serveur SQLite.`);
+    } finally {
+      setIsSaving(false);
+      setShowLoadButton(false);
+    }
   };
 
   // Fonction pour copier le code dans le presse-papier
@@ -510,25 +560,46 @@ const App = () => {
             </div>
           </div>
           
-          <div className="flex flex-col items-end">
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              {apiHealth ? (
+                <div className="flex items-center gap-1 text-emerald-600 text-sm">
+                  <Wifi className="w-4 h-4" />
+                  <span>API SQLite connectée</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-amber-600 text-sm">
+                  <WifiOff className="w-4 h-4" />
+                  <span>Mode hors ligne</span>
+                </div>
+              )}
+              {queueSize > 0 && (
+                <div className="flex items-center gap-1 text-blue-600 text-sm bg-blue-50 px-2 py-1 rounded">
+                  <Database className="w-3 h-3" />
+                  <span>{queueSize} en attente</span>
+                </div>
+              )}
+            </div>
+            
             <button 
-              onClick={saveData}
-              disabled={isSaving || (isFirebaseValid && !user)}
+              onClick={saveDataToServer}
+              disabled={isSaving}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50"
             >
               {isSaving ? <Cloud className="w-5 h-5 animate-pulse" /> : <Save className="w-5 h-5" />}
-              {isSaving ? "Sauvegarde..." : "Sauvegarder dans le cloud"}
+              {isSaving ? "Sauvegarde..." : "Sauvegarder sur SQLite"}
             </button>
+            
             {lastSaved && !saveError && (
-              <p className="text-sm text-slate-500 mt-2 flex items-center gap-1.5 font-medium">
+              <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5 font-medium">
                 <CheckCircle className="w-4 h-4 text-emerald-500" /> 
                 Dernière sauvegarde : {lastSaved.toLocaleTimeString('fr-CH', {hour: '2-digit', minute:'2-digit'})}
               </p>
             )}
             {saveError && (
-              <p className="text-sm text-red-500 mt-2 flex items-center gap-1.5 font-medium">
+              <p className="text-sm text-red-500 mt-1 flex items-center gap-1.5 font-medium">
                 <AlertCircle className="w-4 h-4" /> 
-                Hébergement externe : Configurez Firebase
+                Erreur de connexion API
               </p>
             )}
           </div>
