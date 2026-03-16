@@ -16,7 +16,7 @@ const parseDecimal = (value) => {
   if (typeof value === 'number') return value;
   if (typeof value !== 'string') return 0;
   
-  // Remplacer les virgules par des points
+  // Remplacer les virgules par des points (compatibilité avec les deux formats)
   const normalized = value.replace(',', '.');
   
   // Supprimer tout ce qui n'est pas chiffre, point ou signe négatif
@@ -29,10 +29,10 @@ const parseDecimal = (value) => {
   return isNaN(num) ? 0 : num;
 };
 
-// Fonction pour formater l'affichage avec le séparateur approprié
+// Fonction pour formater l'affichage avec le séparateur approprié (point pour la Suisse)
 const formatDecimal = (value, decimals = 2) => {
   const num = typeof value === 'number' ? value : parseDecimal(value);
-  return num.toFixed(decimals).replace('.', ',');
+  return num.toFixed(decimals); // Utilise le point comme séparateur décimal
 };
 
 const App = () => {
@@ -65,6 +65,8 @@ const App = () => {
       {
         id: 1,
         name: "Votre Devis Actuel",
+        photoUrl: "",
+        commentaire: "",
         prixAchat: 52037,
         apport: 15000,
         tauxLeasing: 0.99,
@@ -78,6 +80,8 @@ const App = () => {
       {
         id: 2,
         name: "Break Hybride (Exemple)",
+        photoUrl: "",
+        commentaire: "",
         prixAchat: 46000,
         apport: 10000,
         tauxLeasing: 2.9,
@@ -91,6 +95,8 @@ const App = () => {
       {
         id: 3,
         name: "Électrique Familiale",
+        photoUrl: "",
+        commentaire: "",
         prixAchat: 56000,
         apport: 15000,
         tauxLeasing: 1.5,
@@ -109,6 +115,8 @@ const App = () => {
     {
       id: 1,
       name: "Votre Devis Actuel",
+      photoUrl: "",
+      commentaire: "",
       prixAchat: 52037,
       apport: 15000,
       tauxLeasing: 0.99,
@@ -122,6 +130,8 @@ const App = () => {
     {
       id: 2,
       name: "Break Hybride (Exemple)",
+      photoUrl: "",
+      commentaire: "",
       prixAchat: 46000,
       apport: 10000,
       tauxLeasing: 2.9,
@@ -135,6 +145,8 @@ const App = () => {
     {
       id: 3,
       name: "Électrique Familiale",
+      photoUrl: "",
+      commentaire: "",
       prixAchat: 56000,
       apport: 15000,
       tauxLeasing: 1.5,
@@ -167,6 +179,8 @@ const App = () => {
     setCars([...cars, {
       id: newId,
       name: `Nouveau Véhicule`,
+      photoUrl: "",
+      commentaire: "",
       prixAchat: 40000,
       apport: 10000,
       tauxLeasing: 2.9,
@@ -620,6 +634,42 @@ const App = () => {
               <div className="flex flex-col lg:flex-row flex-grow">
                 {/* Colonne GAUCHE : Formulaire */}
                 <div className="lg:w-1/2 p-4 space-y-3 border-r border-slate-100">
+                  {/* Photo URL */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase">URL de la photo</label>
+                    <input 
+                      type="text" 
+                      value={car.photoUrl} 
+                      onChange={e => updateCar(index, 'photoUrl', e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
+                      placeholder="https://example.com/photo.jpg"
+                    />
+                    {car.photoUrl && (
+                      <div className="mt-2">
+                        <img 
+                          src={car.photoUrl} 
+                          alt={car.name}
+                          className="w-full h-32 object-cover rounded-lg border border-slate-200"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = '<div class="text-xs text-slate-400 italic">Image non disponible</div>';
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Commentaire */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase">Commentaire</label>
+                    <textarea 
+                      value={car.commentaire} 
+                      onChange={e => updateCar(index, 'commentaire', e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white h-20"
+                      placeholder="Notes, observations, détails..."
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase">Prix TTC (CHF)</label>
                     <input type="number" step="0.01" value={car.prixAchat} onChange={e => updateCar(index, 'prixAchat', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50" />
