@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  comparateur:
+    build: .
+    container_name: comparateur-auto
+    ports:
+      - "8080:80"  # Port différent de Pi-hole (qui utilise probablement le port 80)
+    restart: unless-stopped
+    networks:
+      - comparateur-net
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - nginx-logs:/var/log/nginx
+    # Ressources limitées pour Raspberry Pi
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+
+networks:
+  comparateur-net:
+    driver: bridge
+
+volumes:
+  nginx-logs:
+    driver: local

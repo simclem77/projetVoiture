@@ -4,30 +4,12 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
-// --- Configuration Firebase (Compatible Canvas & Netlify/Vite/CRA) ---
-let firebaseConfig = {};
-
-if (typeof __firebase_config !== 'undefined') {
-  // Environnement Canvas (Automatique)
-  firebaseConfig = JSON.parse(__firebase_config);
-} else if (typeof import.meta !== 'undefined' && import.meta.env) {
-  // Environnement Vite (Netlify, Vercel, etc.)
-  firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID
-  };
-}
-
-// Vérifie si Firebase est bien configuré (évite les crashs sur Netlify si on oublie les clés)
-const isFirebaseValid = firebaseConfig && firebaseConfig.apiKey;
-const app = isFirebaseValid ? initializeApp(firebaseConfig) : null;
-const auth = isFirebaseValid ? getAuth(app) : null;
-const db = isFirebaseValid ? getFirestore(app) : null;
-const currentAppId = typeof __app_id !== 'undefined' ? __app_id : 'comparateur-auto-perso';
+// --- Configuration pour Raspberry Pi (Mode local uniquement) ---
+const isFirebaseValid = false; // Désactivé pour Raspberry Pi
+const app = null;
+const auth = null;
+const db = null;
+const currentAppId = 'comparateur-auto-local';
 
 // Fonction utilitaire pour convertir les nombres avec séparateurs décimaux
 const parseDecimal = (value) => {
@@ -203,39 +185,13 @@ const App = () => {
     }
   };
 
-  // --- EFFETS FIREBASE ---
+  // --- EFFETS LOCALSTORAGE ---
   useEffect(() => {
-    if (!auth) {
-      // Si Firebase n'est pas configuré, mode hors ligne
-      console.log("Firebase non configuré - mode hors ligne");
-      return;
-    }
-    
-    const initAuth = async () => {
+    // Charger les données sauvegardées pour le code partagé actuel
+    const savedData = localStorage.getItem(`comparateur_${sharedCode}`);
+    if (savedData) {
       try {
-        await signInAnonymously(auth);
-      } catch (error) {
-        console.error("Erreur d'authentification Firebase :", error);
-        setSaveError(true);
-      }
-    };
-    
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!user || !db || !sharedCode) return;
-    
-    // Utiliser le code partagé comme chemin dans Firebase (nombre PAIR de segments)
-    const sharedDocRef = doc(db, 'artifacts', currentAppId, 'shared', sharedCode, 'data', 'simulation');
-
-    const unsubscribe = onSnapshot(sharedDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        // Mettre à jour les états sans vérifier les différences (évite les dépendances circulaires)
+        const data = JSON.parse(savedData);
         if (data.cars) setCars(data.cars);
         if (data.dureeMois) setDureeMois(data.dureeMois);
         if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
@@ -246,37 +202,16 @@ const App = () => {
         if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
         if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
         setIsCodeValid(true);
-      } else {
-        // Si le document n'existe pas, ne pas changer les données (garder les données par défaut)
-        setIsCodeValid(true);
+      } catch (error) {
+        console.warn("Erreur de chargement localStorage:", error);
       }
-    }, (error) => {
-       console.error("Erreur de synchronisation :", error);
-       setIsCodeValid(false);
-    });
+    }
+  }, [sharedCode]);
 
-    return () => unsubscribe();
-  }, [user, sharedCode]);
-
-  // Utiliser les données par défaut si Firebase n'est pas configuré
+  // Sauvegarde automatique quand les données changent
   useEffect(() => {
-    if (!isFirebaseValid && cars.length === 0) {
-      setCars(defaultCars);
-    }
-  }, [isFirebaseValid]);
-
-  const saveData = async () => {
-    if (!isFirebaseValid) {
-      setSaveError(true);
-      setTimeout(() => setSaveError(false), 4000);
-      return;
-    }
-    if (!user || !db || !sharedCode) return;
-    
-    setIsSaving(true);
-    try {
-      const sharedDocRef = doc(db, 'artifacts', currentAppId, 'shared', sharedCode, 'data', 'simulation');
-      await setDoc(sharedDocRef, {
+    const saveTimeout = setTimeout(() => {
+      const data = {
         cars,
         dureeMois,
         kmAnnuel,
@@ -285,15 +220,40 @@ const App = () => {
         tauxCreditGlobal,
         inflationAnnuelle,
         tauxPlacement,
+        sharedCode,
         updatedAt: new Date().toISOString()
-      });
+      };
+      
+      localStorage.setItem(`comparateur_${sharedCode}`, JSON.stringify(data));
       setLastSaved(new Date());
       setIsCodeValid(true);
-    } catch (error) {
-      console.error("Erreur de sauvegarde :", error);
-      setIsCodeValid(false);
-    }
-    setIsSaving(false);
+    }, 500); // Délai de 500ms pour éviter de sauvegarder à chaque frappe
+
+    return () => clearTimeout(saveTimeout);
+  }, [cars, dureeMois, kmAnnuel, parking, vignette, tauxCreditGlobal, inflationAnnuelle, tauxPlacement, sharedCode]);
+
+  const saveData = () => {
+    // Sauvegarde manuelle instantanée
+    const data = {
+      cars,
+      dureeMois,
+      kmAnnuel,
+      parking,
+      vignette,
+      tauxCreditGlobal,
+      inflationAnnuelle,
+      tauxPlacement,
+      sharedCode,
+      updatedAt: new Date().toISOString()
+    };
+    
+    localStorage.setItem(`comparateur_${sharedCode}`, JSON.stringify(data));
+    setLastSaved(new Date());
+    setIsCodeValid(true);
+    
+    // Feedback visuel
+    setIsSaving(true);
+    setTimeout(() => setIsSaving(false), 1000);
   };
 
   // --- MOTEUR DE CALCUL ---
