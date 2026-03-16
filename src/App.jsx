@@ -229,8 +229,8 @@ const App = () => {
   useEffect(() => {
     if (!user || !db || !sharedCode) return;
     
-    // Utiliser le code partagé comme chemin dans Firebase
-    const sharedDocRef = doc(db, 'artifacts', currentAppId, 'shared', sharedCode, 'simulation');
+    // Utiliser le code partagé comme chemin dans Firebase (nombre PAIR de segments)
+    const sharedDocRef = doc(db, 'artifacts', currentAppId, 'shared', sharedCode, 'data', 'simulation');
 
     const unsubscribe = onSnapshot(sharedDocRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -275,7 +275,7 @@ const App = () => {
     
     setIsSaving(true);
     try {
-      const sharedDocRef = doc(db, 'artifacts', currentAppId, 'shared', sharedCode, 'simulation');
+      const sharedDocRef = doc(db, 'artifacts', currentAppId, 'shared', sharedCode, 'data', 'simulation');
       await setDoc(sharedDocRef, {
         cars,
         dureeMois,
