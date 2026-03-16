@@ -206,17 +206,28 @@ const App = () => {
 
   // --- EFFETS FIREBASE ---
   useEffect(() => {
-    if (!auth) return; // Ignore si on est sur Netlify sans configuration Firebase
+    if (!auth) {
+      // Si Firebase n'est pas configuré, on considère que le chargement est terminé
+      setIsLoading(false);
+      return;
+    }
     
     const initAuth = async () => {
       try {
         await signInAnonymously(auth);
       } catch (error) {
         console.error("Erreur d'authentification :", error);
+        setIsLoading(false);
       }
     };
+    
     initAuth();
-    const unsubscribe = onAuthStateChanged(auth, setUser);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      // Une fois l'utilisateur défini, on considère que le chargement est terminé
+      setIsLoading(false);
+    });
+    
     return () => unsubscribe();
   }, []);
 
@@ -229,6 +240,7 @@ const App = () => {
     const unsubscribe = onSnapshot(sharedDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        // Mettre à jour les états sans vérifier les différences (évite les dépendances circulaires)
         if (data.cars) setCars(data.cars);
         if (data.dureeMois) setDureeMois(data.dureeMois);
         if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
@@ -240,14 +252,11 @@ const App = () => {
         if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
         setIsCodeValid(true);
       } else {
-        // Si le document n'existe pas, utiliser les données par défaut
-        setCars(defaultCars);
+        // Si le document n'existe pas, ne pas changer les données (garder les données par défaut)
         setIsCodeValid(true);
       }
     }, (error) => {
        console.error("Erreur de synchronisation :", error);
-       // En cas d'erreur, utiliser les données par défaut
-       setCars(defaultCars);
        setIsCodeValid(false);
     });
 
@@ -363,6 +372,19 @@ const App = () => {
   const copyToClipboard = () => {
     navigator.clipboard.writeText(sharedCode);
   };
+
+  // Afficher un écran de chargement pendant l'initialisation
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold text-slate-800">Chargement du comparateur...</h2>
+          <p className="text-slate-500 mt-2">Initialisation en cours</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 font-sans text-slate-800">
