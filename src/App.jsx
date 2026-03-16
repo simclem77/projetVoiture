@@ -59,7 +59,6 @@ const App = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [saveError, setSaveError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   
   // --- SYSTÈME DE CODE PARTAGÉ ---
   const [sharedCode, setSharedCode] = useState(() => {
@@ -207,8 +206,8 @@ const App = () => {
   // --- EFFETS FIREBASE ---
   useEffect(() => {
     if (!auth) {
-      // Si Firebase n'est pas configuré, on considère que le chargement est terminé
-      setIsLoading(false);
+      // Si Firebase n'est pas configuré, mode hors ligne
+      console.log("Firebase non configuré - mode hors ligne");
       return;
     }
     
@@ -216,17 +215,13 @@ const App = () => {
       try {
         await signInAnonymously(auth);
       } catch (error) {
-        console.error("Erreur d'authentification :", error);
-        setIsLoading(false);
+        console.error("Erreur d'authentification Firebase :", error);
+        setSaveError(true);
       }
     };
     
     initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      // Une fois l'utilisateur défini, on considère que le chargement est terminé
-      setIsLoading(false);
-    });
+    const unsubscribe = onAuthStateChanged(auth, setUser);
     
     return () => unsubscribe();
   }, []);
@@ -372,19 +367,6 @@ const App = () => {
   const copyToClipboard = () => {
     navigator.clipboard.writeText(sharedCode);
   };
-
-  // Afficher un écran de chargement pendant l'initialisation
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold text-slate-800">Chargement du comparateur...</h2>
-          <p className="text-slate-500 mt-2">Initialisation en cours</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 font-sans text-slate-800">
