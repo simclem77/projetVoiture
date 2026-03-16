@@ -59,6 +59,7 @@ const App = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [saveError, setSaveError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   // --- SYSTÈME DE CODE PARTAGÉ ---
   const [sharedCode, setSharedCode] = useState(() => {
@@ -77,7 +78,50 @@ const App = () => {
   const [tauxPlacement, setTauxPlacement] = useState(3.0);
 
   // --- VÉHICULES (Tableau d'objets dynamique) ---
-  const [cars, setCars] = useState([]);
+  const [cars, setCars] = useState(() => {
+    // Charger les données par défaut immédiatement pour éviter le flash
+    return [
+      {
+        id: 1,
+        name: "Votre Devis Actuel",
+        prixAchat: 52037,
+        apport: 15000,
+        tauxLeasing: 0.99,
+        valeurResiduelle: 23784,
+        assurance: 1500,
+        impotCantonal: 450,
+        consommation: 7.5, 
+        prixCarburant: 1.85,
+        entretien: 0 
+      },
+      {
+        id: 2,
+        name: "Break Hybride (Exemple)",
+        prixAchat: 46000,
+        apport: 10000,
+        tauxLeasing: 2.9,
+        valeurResiduelle: 18000,
+        assurance: 1300,
+        impotCantonal: 250,
+        consommation: 5.5,
+        prixCarburant: 1.85,
+        entretien: 700
+      },
+      {
+        id: 3,
+        name: "Électrique Familiale",
+        prixAchat: 56000,
+        apport: 15000,
+        tauxLeasing: 1.5,
+        valeurResiduelle: 26000,
+        assurance: 1600,
+        impotCantonal: 0, 
+        consommation: 18, 
+        prixCarburant: 0.28, 
+        entretien: 300 
+      }
+    ];
+  });
   
   // Données par défaut si Firebase n'est pas configuré ou si aucune donnée n'existe
   const defaultCars = [
