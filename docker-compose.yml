@@ -70,5 +70,5 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: /home/pi/comparateur-data
+      device: /home/simclem/comparateur-data
       o: bind
