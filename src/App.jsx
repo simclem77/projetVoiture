@@ -932,8 +932,8 @@ const App = () => {
                       value={car.prixAchat}
                       onChange={e => {
                         const val = e.target.value;
-                        // Accepter uniquement chiffres, virgules, points
-                        if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
+                        // Accepter chiffres, virgules, points - permettre point/virgule à la fin
+                        if (val === '' || /^[0-9]*[.,]?[0-9]*[.,]?$/.test(val)) {
                           updateCar(index, 'prixAchat', val);
                         }
                       }}
