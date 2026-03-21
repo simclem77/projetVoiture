@@ -12,7 +12,7 @@ const auth = null;
 const db = null;
 const currentAppId = 'comparateur-auto-local';
 
-// Fonction utilitaire pour convertir les nombres avec séparateurs décimaux
+// Fonction utilitaire pour convertir les nombres avec séparateurs décimaux (format suisse)
 const parseDecimal = (value) => {
   if (typeof value === 'number') return value;
   if (typeof value !== 'string') return 0;
@@ -20,20 +20,19 @@ const parseDecimal = (value) => {
   // Si la chaîne est vide, retourner 0
   if (value.trim() === '') return 0;
   
-  // Supprimer les espaces, apostrophes, virgules (séparateurs de milliers)
-  // Ex: "52,037" -> "52037", "52 037" -> "52037", "52'037" -> "52037"
-  let cleaned = value.replace(/[\s,'’]/g, '');
+  // Format suisse : point décimal, pas de séparateur de milliers
+  // On accepte les virgules comme séparateurs décimaux (habitude utilisateur)
+  // "7.5" -> 7.5, "7,5" -> 7.5, "52037" -> 52037
+  // "52'037" -> 52037 (supprime apostrophe), "52 037" -> 52037 (supprime espace)
   
-  // Remplacer la virgule par un point uniquement si c'est un séparateur décimal
-  // On suppose qu'une virgule décimale est suivie de 1-3 chiffres à la fin
-  // Ex: "52,50" -> "52.50", "1,5" -> "1.5"
-  if (/,/.test(cleaned)) {
-    // Si il y a une virgule, remplacer par un point
-    cleaned = cleaned.replace(',', '.');
-  }
+  // Remplacer les virgules par des points (habitude utilisateur)
+  let normalized = value.replace(',', '.');
+  
+  // Supprimer les apostrophes et espaces (séparateurs de milliers parfois utilisés)
+  normalized = normalized.replace(/['’\s]/g, '');
   
   // Supprimer tout ce qui n'est pas chiffre, point ou signe négatif
-  cleaned = cleaned.replace(/[^\d.-]/g, '');
+  const cleaned = normalized.replace(/[^\d.-]/g, '');
   
   // Convertir en nombre
   const num = parseFloat(cleaned);
@@ -778,6 +777,7 @@ const App = () => {
                <label className="block text-xs font-medium text-slate-500">Durée (mois)</label>
                <input 
                  type="number" 
+                 inputMode="numeric"
                  value={dureeMois} 
                  onChange={e => setDureeMois(parseDecimal(e.target.value))} 
                  className="w-full p-2 border rounded-md" 
@@ -787,6 +787,7 @@ const App = () => {
                <label className="block text-xs font-medium text-slate-500">Km annuel</label>
                <input 
                  type="number" 
+                 inputMode="numeric"
                  value={kmAnnuel} 
                  onChange={e => setKmAnnuel(parseDecimal(e.target.value))} 
                  className="w-full p-2 border rounded-md" 
@@ -797,6 +798,7 @@ const App = () => {
                <input 
                  type="number" 
                  step="0.01"
+                 inputMode="decimal"
                  value={parking} 
                  onChange={e => setParking(parseDecimal(e.target.value))} 
                  className="w-full p-2 border rounded-md" 
@@ -806,6 +808,7 @@ const App = () => {
                <label className="block text-xs font-medium text-slate-500">Vignette /an</label>
                <input 
                  type="number" 
+                 inputMode="numeric"
                  value={vignette} 
                  onChange={e => setVignette(parseDecimal(e.target.value))} 
                  className="w-full p-2 border rounded-md" 
@@ -816,6 +819,7 @@ const App = () => {
                <input 
                  type="number" 
                  step="0.01"
+                 inputMode="decimal"
                  value={tauxCreditGlobal} 
                  onChange={e => setTauxCreditGlobal(parseDecimal(e.target.value))} 
                  className="w-full p-2 border border-emerald-300 rounded-md bg-emerald-50 text-emerald-900 font-bold" 
@@ -826,6 +830,7 @@ const App = () => {
                <input 
                  type="number" 
                  step="0.01"
+                 inputMode="decimal"
                  value={inflationAnnuelle} 
                  onChange={e => setInflationAnnuelle(parseDecimal(e.target.value))} 
                  className="w-full p-2 border border-amber-300 rounded-md bg-amber-50 text-amber-900" 
@@ -836,6 +841,7 @@ const App = () => {
                <input 
                  type="number" 
                  step="0.01"
+                 inputMode="decimal"
                  value={tauxPlacement} 
                  onChange={e => setTauxPlacement(parseDecimal(e.target.value))} 
                  className="w-full p-2 border border-cyan-300 rounded-md bg-cyan-50 text-cyan-900" 
@@ -920,12 +926,13 @@ const App = () => {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase">Prix TTC (CHF)</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       step="0.01"
-                      value={car.prixAchat} 
+                      inputMode="decimal"
+                      value={car.prixAchat}
                       onChange={e => updateCar(index, 'prixAchat', e.target.value)}
-                      className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50" 
+                      className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50"
                       placeholder="0.00"
                     />
                   </div>
