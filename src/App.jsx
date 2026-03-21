@@ -927,13 +927,18 @@ const App = () => {
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase">Prix TTC (CHF)</label>
                     <input
-                      type="number"
-                      step="0.01"
+                      type="text"
                       inputMode="decimal"
                       value={car.prixAchat}
-                      onChange={e => updateCar(index, 'prixAchat', e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value;
+                        // Accepter uniquement chiffres, virgules, points
+                        if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
+                          updateCar(index, 'prixAchat', val);
+                        }
+                      }}
                       className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50"
-                      placeholder="0.00"
+                      placeholder="ex: 52037 ou 52,037"
                     />
                   </div>
                   
@@ -943,10 +948,15 @@ const App = () => {
                       <div>
                         <label className="block text-xs text-blue-700">Apport</label>
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
+                          inputMode="decimal"
                           value={car.apport}
-                          onChange={e => updateCar(index, 'apport', e.target.value)}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
+                              updateCar(index, 'apport', val);
+                            }
+                          }}
                           className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white"
                           placeholder="0.00"
                         />
@@ -954,10 +964,15 @@ const App = () => {
                       <div>
                         <label className="block text-xs text-blue-700">Taux (%)</label>
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
+                          inputMode="decimal"
                           value={car.tauxLeasing}
-                          onChange={e => updateCar(index, 'tauxLeasing', e.target.value)}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
+                              updateCar(index, 'tauxLeasing', val);
+                            }
+                          }}
                           className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold"
                           placeholder="0.00"
                         />
@@ -970,10 +985,15 @@ const App = () => {
                     <div>
                       <label className="block text-xs text-emerald-700">Apport crédit (différent du leasing)</label>
                       <input 
-                        type="number" 
-                        step="0.01"
+                        type="text"
+                        inputMode="decimal"
                         value={car.apportCredit} 
-                        onChange={e => updateCar(index, 'apportCredit', e.target.value)}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
+                            updateCar(index, 'apportCredit', val);
+                          }
+                        }}
                         className="w-full p-1.5 border border-emerald-200 rounded text-sm bg-white" 
                         placeholder="0.00"
                       />
@@ -990,10 +1010,15 @@ const App = () => {
                         )}
                       </div>
                       <input 
-                        type="number" 
-                        step="0.01"
+                        type="text"
+                        inputMode="decimal"
                         value={car.valeurResiduelle} 
-                        onChange={e => updateCar(index, 'valeurResiduelle', e.target.value)}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
+                            updateCar(index, 'valeurResiduelle', val);
+                          }
+                        }}
                         className="w-full p-2 border border-slate-300 rounded-lg text-sm" 
                         placeholder="0.00"
                       />
