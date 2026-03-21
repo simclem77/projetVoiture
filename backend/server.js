@@ -7,12 +7,22 @@ const fs = require('fs');
 
 // Configuration
 const PORT = process.env.PORT || 3000;
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'comparateur.db');
+const DB_PATH = process.env.DB_PATH || '/data/comparateur.db';
 
 // Assurer que le dossier data existe
-const dataDir = path.join(__dirname, 'data');
+const dataDir = '/data';
 if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    console.log('✅ Dossier /data créé');
+  } catch (err) {
+    console.warn('⚠️ Impossible de créer /data, utilisation du dossier courant:', err.message);
+    // Fallback au dossier courant
+    const fallbackDir = path.join(__dirname, 'data');
+    if (!fs.existsSync(fallbackDir)) {
+      fs.mkdirSync(fallbackDir, { recursive: true });
+    }
+  }
 }
 
 // Initialiser la base de données
