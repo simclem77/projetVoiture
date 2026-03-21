@@ -65,7 +65,9 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:8080', 'http://192.168.50.23:8080', 'http://localhost:3000'],
+  origin: process.env.NODE_ENV === 'production' 
+    ? '*'  // En production, accepter toutes les origines
+    : ['http://localhost:8080', 'http://localhost:3000', 'http://192.168.50.23:8080'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type']
 }));

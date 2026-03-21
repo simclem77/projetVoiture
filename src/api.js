@@ -1,7 +1,24 @@
 // API client pour le backend SQLite
 // Gère la synchronisation entre appareils
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+// Détecter automatiquement l'URL de l'API basée sur l'hôte actuel
+const getApiUrl = () => {
+  // Si variable d'environnement définie, l'utiliser
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // En production (Docker), utiliser le même hôte que le frontend mais sur le port 3000
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    return `http://${window.location.hostname}:3000`;
+  }
+  
+  // En développement local
+  return 'http://localhost:3000';
+};
+
+const API_URL = getApiUrl();
+console.log('🔗 API URL:', API_URL);
 
 // Cache local pour mode hors ligne
 let offlineCache = new Map();
