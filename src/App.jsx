@@ -12,6 +12,46 @@ const auth = null;
 const db = null;
 const currentAppId = 'comparateur-auto-local';
 
+// Composant pour la saisie numérique avec gestion optimisée pour mobile
+const NumericInput = ({ value, onChange, className, placeholder, step, inputMode = "decimal" }) => {
+  const [localValue, setLocalValue] = useState(value?.toString() || "");
+
+  // Synchroniser si la valeur change de l'extérieur (ex: chargement API)
+  useEffect(() => {
+    if (parseFloat(localValue) !== value) {
+      setLocalValue(value?.toString() || "");
+    }
+  }, [value]);
+
+  const handleChange = (e) => {
+    const rawValue = e.target.value;
+    // On remplace la virgule par un point pour la logique interne
+    const normalizedValue = rawValue.replace(',', '.');
+    
+    // On autorise la saisie de caractères temporairement "invalides" comme un point seul
+    setLocalValue(rawValue);
+
+    // On ne propage le changement au parent que si c'est un nombre valide
+    const parsed = parseFloat(normalizedValue);
+    if (!isNaN(parsed)) {
+      onChange(parsed);
+    } else if (rawValue === "") {
+      onChange(0);
+    }
+  };
+
+  return (
+    <input
+      type="text" // On utilise text pour mieux contrôler la saisie mobile
+      inputMode={inputMode}
+      value={localValue}
+      onChange={handleChange}
+      className={className}
+      placeholder={placeholder}
+    />
+  );
+};
+
 // Fonction utilitaire pour convertir les nombres avec séparateurs décimaux (format suisse)
 const parseDecimal = (value) => {
   if (typeof value === 'number') return value;
@@ -926,13 +966,11 @@ const App = () => {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase">Prix TTC (CHF)</label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <NumericInput
                       value={car.prixAchat}
-                      onChange={e => updateCar(index, 'prixAchat', e.target.value)}
+                      onChange={val => updateCar(index, 'prixAchat', val)}
                       className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50"
-                      placeholder="ex: 52037 ou 52,037"
+                      placeholder="ex: 52037.50"
                     />
                   </div>
                   
@@ -970,11 +1008,11 @@ const App = () => {
                       <label className="block text-xs text-emerald-700">Apport crédit (différent du leasing)</label>
                       <input 
                         type="text"
-                        //inputMode="decimal"
+                        inputMode="decimal"
                         value={car.apportCredit} 
                         onChange={e => updateCar(index, 'apportCredit', e.target.value)}
                         className="w-full p-1.5 border border-emerald-200 rounded text-sm bg-white" 
-                        //placeholder="0.00"
+                        placeholder="0.00"
                       />
                     </div>
                   </div>
