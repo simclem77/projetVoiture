@@ -784,31 +784,73 @@ const App = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Durée (mois)</label>
-               <input type="number" value={dureeMois} onChange={e => setDureeMois(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
+               <input 
+                 type="text" 
+                 inputMode="numeric"
+                 value={dureeMois} 
+                 onChange={e => handleNumberInput(e.target.value, setDureeMois)} 
+                 className="w-full p-2 border rounded-md" 
+               />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Km annuel</label>
-               <input type="number" value={kmAnnuel} onChange={e => setKmAnnuel(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
+               <input 
+                 type="text" 
+                 inputMode="numeric"
+                 value={kmAnnuel} 
+                 onChange={e => handleNumberInput(e.target.value, setKmAnnuel)} 
+                 className="w-full p-2 border rounded-md" 
+               />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Parking /mois</label>
-               <input type="number" step="0.01" value={parking} onChange={e => setParking(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
+               <input 
+                 type="text" 
+                 inputMode="decimal"
+                 value={parking} 
+                 onChange={e => handleNumberInput(e.target.value, setParking)} 
+                 className="w-full p-2 border rounded-md" 
+               />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Vignette /an</label>
-               <input type="number" value={vignette} onChange={e => setVignette(parseDecimal(e.target.value))} className="w-full p-2 border rounded-md" />
+               <input 
+                 type="text" 
+                 inputMode="numeric"
+                 value={vignette} 
+                 onChange={e => handleNumberInput(e.target.value, setVignette)} 
+                 className="w-full p-2 border rounded-md" 
+               />
              </div>
              <div className="col-span-1 border-l border-slate-200 pl-4">
                <label className="block text-xs font-bold text-emerald-600">Crédit (%)</label>
-               <input type="number" step="0.01" value={tauxCreditGlobal} onChange={e => setTauxCreditGlobal(parseDecimal(e.target.value))} className="w-full p-2 border border-emerald-300 rounded-md bg-emerald-50 text-emerald-900 font-bold" />
+               <input 
+                 type="text" 
+                 inputMode="decimal"
+                 value={tauxCreditGlobal} 
+                 onChange={e => handleNumberInput(e.target.value, setTauxCreditGlobal)} 
+                 className="w-full p-2 border border-emerald-300 rounded-md bg-emerald-50 text-emerald-900 font-bold" 
+               />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-amber-600">Inflation (%)</label>
-               <input type="number" step="0.01" value={inflationAnnuelle} onChange={e => setInflationAnnuelle(parseDecimal(e.target.value))} className="w-full p-2 border border-amber-300 rounded-md bg-amber-50 text-amber-900" />
+               <input 
+                 type="text" 
+                 inputMode="decimal"
+                 value={inflationAnnuelle} 
+                 onChange={e => handleNumberInput(e.target.value, setInflationAnnuelle)} 
+                 className="w-full p-2 border border-amber-300 rounded-md bg-amber-50 text-amber-900" 
+               />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-cyan-600">Placement (%)</label>
-               <input type="number" step="0.01" value={tauxPlacement} onChange={e => setTauxPlacement(parseDecimal(e.target.value))} className="w-full p-2 border border-cyan-300 rounded-md bg-cyan-50 text-cyan-900" />
+               <input 
+                 type="text" 
+                 inputMode="decimal"
+                 value={tauxPlacement} 
+                 onChange={e => handleNumberInput(e.target.value, setTauxPlacement)} 
+                 className="w-full p-2 border border-cyan-300 rounded-md bg-cyan-50 text-cyan-900" 
+               />
              </div>
           </div>
         </div>
@@ -889,7 +931,14 @@ const App = () => {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase">Prix TTC (CHF)</label>
-                    <input type="number" step="0.01" value={car.prixAchat} onChange={e => updateCar(index, 'prixAchat', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50" />
+                    <input 
+                      type="text" 
+                      inputMode="decimal"
+                      value={car.prixAchat} 
+                      onChange={e => handleNumberInput(e.target.value, (val) => updateCar(index, 'prixAchat', val))}
+                      className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50" 
+                      placeholder="0.00"
+                    />
                   </div>
                   
                   <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg space-y-2">
@@ -897,11 +946,25 @@ const App = () => {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-xs text-blue-700">Apport</label>
-                        <input type="number" step="0.01" value={car.apport} onChange={e => updateCar(index, 'apport', e.target.value)} className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white" />
+                        <input 
+                          type="text" 
+                          inputMode="decimal"
+                          value={car.apport} 
+                          onChange={e => handleNumberInput(e.target.value, (val) => updateCar(index, 'apport', val))}
+                          className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white" 
+                          placeholder="0.00"
+                        />
                       </div>
                       <div>
                         <label className="block text-xs text-blue-700">Taux (%)</label>
-                        <input type="number" step="0.01" value={car.tauxLeasing} onChange={e => updateCar(index, 'tauxLeasing', e.target.value)} className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold" />
+                        <input 
+                          type="text" 
+                          inputMode="decimal"
+                          value={car.tauxLeasing} 
+                          onChange={e => handleNumberInput(e.target.value, (val) => updateCar(index, 'tauxLeasing', val))}
+                          className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold" 
+                          placeholder="0.00"
+                        />
                       </div>
                     </div>
                   </div>
@@ -910,7 +973,14 @@ const App = () => {
                     <span className="text-xs font-bold text-emerald-800 uppercase">Conditions crédit</span>
                     <div>
                       <label className="block text-xs text-emerald-700">Apport crédit (différent du leasing)</label>
-                      <input type="number" step="0.01" value={car.apportCredit} onChange={e => updateCar(index, 'apportCredit', e.target.value)} className="w-full p-1.5 border border-emerald-200 rounded text-sm bg-white" />
+                      <input 
+                        type="text" 
+                        inputMode="decimal"
+                        value={car.apportCredit} 
+                        onChange={e => handleNumberInput(e.target.value, (val) => updateCar(index, 'apportCredit', val))}
+                        className="w-full p-1.5 border border-emerald-200 rounded text-sm bg-white" 
+                        placeholder="0.00"
+                      />
                     </div>
                   </div>
 
@@ -923,31 +993,73 @@ const App = () => {
                         </span>
                       )}
                     </div>
-                    <input type="number" step="0.01" value={car.valeurResiduelle} onChange={e => updateCar(index, 'valeurResiduelle', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg text-sm" />
+                    <input 
+                      type="text" 
+                      inputMode="decimal"
+                      value={car.valeurResiduelle} 
+                      onChange={e => handleNumberInput(e.target.value, (val) => updateCar(index, 'valeurResiduelle', val))}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-sm" 
+                      placeholder="0.00"
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase">Assurance</label>
-                      <input type="number" step="0.01" value={car.assurance} onChange={e => updateCar(index, 'assurance', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                      <input 
+                        type="text" 
+                        inputMode="decimal"
+                        value={car.assurance} 
+                        onChange={e => handleNumberInput(e.target.value, (val) => updateCar(index, 'assurance', val))}
+                        className="w-full p-1.5 border border-slate-200 rounded text-sm" 
+                        placeholder="0.00"
+                      />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase">Impôt</label>
-                      <input type="number" step="0.01" value={car.impotCantonal} onChange={e => updateCar(index, 'impotCantonal', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                      <input 
+                        type="text" 
+                        inputMode="decimal"
+                        value={car.impotCantonal} 
+                        onChange={e => handleNumberInput(e.target.value, (val) => updateCar(index, 'impotCantonal', val))}
+                        className="w-full p-1.5 border border-slate-200 rounded text-sm" 
+                        placeholder="0.00"
+                      />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase">Entretien</label>
-                      <input type="number" step="0.01" value={car.entretien} onChange={e => updateCar(index, 'entretien', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                      <input 
+                        type="text" 
+                        inputMode="decimal"
+                        value={car.entretien} 
+                        onChange={e => handleNumberInput(e.target.value, (val) => updateCar(index, 'entretien', val))}
+                        className="w-full p-1.5 border border-slate-200 rounded text-sm" 
+                        placeholder="0.00"
+                      />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso</label>
-                      <input type="number" step="0.1" value={car.consommation} onChange={e => updateCar(index, 'consommation', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                      <input 
+                        type="text" 
+                        inputMode="decimal"
+                        value={car.consommation} 
+                        onChange={e => handleNumberInput(e.target.value, (val) => updateCar(index, 'consommation', val))}
+                        className="w-full p-1.5 border border-slate-200 rounded text-sm" 
+                        placeholder="0.0"
+                      />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase">Prix carburant/énergie (CHF)</label>
-                    <input type="number" step="0.01" value={car.prixCarburant} onChange={e => updateCar(index, 'prixCarburant', e.target.value)} className="w-full p-1.5 border border-slate-200 rounded text-sm" />
+                    <input 
+                      type="text" 
+                      inputMode="decimal"
+                      value={car.prixCarburant} 
+                      onChange={e => handleNumberInput(e.target.value, (val) => updateCar(index, 'prixCarburant', val))}
+                      className="w-full p-1.5 border border-slate-200 rounded text-sm" 
+                      placeholder="0.00"
+                    />
                   </div>
                 </div>
 
