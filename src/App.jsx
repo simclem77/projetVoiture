@@ -970,11 +970,11 @@ const App = () => {
                       <label className="block text-xs text-emerald-700">Apport crédit (différent du leasing)</label>
                       <input 
                         type="text"
-                        inputMode="decimal"
+                        //inputMode="decimal"
                         value={car.apportCredit} 
                         onChange={e => updateCar(index, 'apportCredit', e.target.value)}
                         className="w-full p-1.5 border border-emerald-200 rounded text-sm bg-white" 
-                        placeholder="0.00"
+                        //placeholder="0.00"
                       />
                     </div>
                   </div>
