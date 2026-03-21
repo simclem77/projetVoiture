@@ -12,7 +12,7 @@ RUN apk add --no-cache sqlite
 COPY package*.json ./
 
 # Installer les dépendances Node.js
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Copier le code source
 COPY . .

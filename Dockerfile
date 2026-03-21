@@ -10,12 +10,11 @@ COPY tailwind.config.js ./
 COPY postcss.config.js ./
 
 # Installer les dépendances
-RUN npm ci
+RUN npm install
 
 # Copier le code source
 COPY index.html ./
 COPY src/ ./src/
-COPY public/ ./public/
 
 # Build l'application
 RUN npm run build

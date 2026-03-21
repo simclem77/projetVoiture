@@ -5,19 +5,19 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 
 // Cache local pour mode hors ligne
 let offlineCache = new Map();
-let isOnline = navigator.onLine;
+let onlineStatus = navigator.onLine;
 let syncQueue = [];
 
 // Détecter les changements de connexion
 window.addEventListener('online', () => {
   console.log('✅ Connexion rétablie');
-  isOnline = true;
+  onlineStatus = true;
   processSyncQueue();
 });
 
 window.addEventListener('offline', () => {
   console.log('⚠️ Mode hors ligne');
-  isOnline = false;
+  onlineStatus = false;
 });
 
 // Fonction pour vérifier la santé de l'API
@@ -45,7 +45,7 @@ export const fetchData = async (code) => {
   }
   
   // Essayer l'API si en ligne
-  if (isOnline) {
+  if (onlineStatus) {
     try {
       const response = await fetch(`${API_URL}/api/data/${code}`, {
         method: 'GET',
@@ -61,12 +61,13 @@ export const fetchData = async (code) => {
       if (result.success && result.data) {
         // Mettre en cache
         offlineCache.set(cacheKey, result.data);
-        // Sauvegarder aussi dans localStorage comme fallback
+        // Sauvegarder aussi dans localStorage comme fallback (deux clés pour compatibilité)
         localStorage.setItem(`cache_${code}`, JSON.stringify({
           data: result.data,
           timestamp: new Date().toISOString(),
           fromApi: true
         }));
+        localStorage.setItem(`comparateur_${code}`, JSON.stringify(result.data));
         return result.data;
       }
       
@@ -90,15 +91,18 @@ export const saveData = async (code, data) => {
   // Mettre à jour le cache local immédiatement
   offlineCache.set(cacheKey, data);
   
-  // Sauvegarder dans localStorage comme backup
-  localStorage.setItem(`cache_${code}`, JSON.stringify({
+  // Sauvegarder dans localStorage comme backup (deux clés pour compatibilité)
+  const cacheData = JSON.stringify({
     data,
     timestamp: new Date().toISOString(),
     fromApi: false
-  }));
+  });
+  localStorage.setItem(`cache_${code}`, cacheData);
+  // Aussi sauvegarder avec la clé utilisée par App.jsx
+  localStorage.setItem(`comparateur_${code}`, JSON.stringify(data));
   
   // Si hors ligne, mettre dans la queue de synchronisation
-  if (!isOnline) {
+  if (!onlineStatus) {
     console.log('📝 Ajout à la queue de sync (hors ligne)');
     syncQueue.push({ code, data, timestamp: new Date().toISOString() });
     localStorage.setItem('sync_queue', JSON.stringify(syncQueue));
@@ -143,7 +147,7 @@ export const processSyncQueue = async () => {
     }
   }
   
-  if (syncQueue.length === 0 || !isOnline) {
+  if (syncQueue.length === 0 || !onlineStatus) {
     return { processed: 0, failed: 0 };
   }
   
@@ -186,11 +190,19 @@ export const processSyncQueue = async () => {
 // Récupérer depuis localStorage (fallback)
 const getFromLocalStorage = (code) => {
   try {
+    // Essayer d'abord la clé cache_
     const cached = localStorage.getItem(`cache_${code}`);
     if (cached) {
       const parsed = JSON.parse(cached);
-      console.log('📦 Données depuis localStorage');
+      console.log('📦 Données depuis localStorage (cache_)');
       return parsed.data;
+    }
+    
+    // Sinon essayer la clé comparateur_
+    const comparateur = localStorage.getItem(`comparateur_${code}`);
+    if (comparateur) {
+      console.log('📦 Données depuis localStorage (comparateur_)');
+      return JSON.parse(comparateur);
     }
   } catch (error) {
     console.warn('Erreur lecture localStorage:', error);
@@ -200,7 +212,7 @@ const getFromLocalStorage = (code) => {
 
 // Lister tous les codes disponibles
 export const listCodes = async () => {
-  if (!isOnline) {
+  if (!onlineStatus) {
     // En mode hors ligne, retourner les codes du cache local
     const codes = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -234,7 +246,7 @@ export const listCodes = async () => {
 
 // Statistiques
 export const getStats = async () => {
-  if (!isOnline) {
+  if (!onlineStatus) {
     return { success: false, message: 'Hors ligne' };
   }
   
@@ -256,6 +268,12 @@ export const getStats = async () => {
   }
 };
 
+// Fonction pour obtenir la taille de la queue
+export const getQueueSize = () => syncQueue.length;
+
+// Fonction pour vérifier si en ligne
+export const isOnline = () => onlineStatus;
+
 // Initialiser la queue depuis localStorage
 const storedQueue = localStorage.getItem('sync_queue');
 if (storedQueue) {
@@ -268,7 +286,7 @@ if (storedQueue) {
 }
 
 // Tenter une sync automatique au démarrage si en ligne
-if (isOnline && syncQueue.length > 0) {
+if (onlineStatus && syncQueue.length > 0) {
   setTimeout(() => {
     processSyncQueue().then(result => {
       if (result.processed > 0) {
@@ -285,6 +303,6 @@ export default {
   listCodes,
   getStats,
   processSyncQueue,
-  isOnline: () => isOnline,
-  getQueueSize: () => syncQueue.length,
+  isOnline,
+  getQueueSize,
 };

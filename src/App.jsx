@@ -236,27 +236,57 @@ const App = () => {
     }
   };
 
-  // --- EFFETS LOCALSTORAGE ---
+  // --- EFFET DE CHARGEMENT INITIAL (API + localStorage) ---
   useEffect(() => {
-    // Charger les données sauvegardées pour le code partagé actuel
-    const savedData = localStorage.getItem(`comparateur_${sharedCode}`);
-    if (savedData) {
+    const loadInitialData = async () => {
+      console.log(`🔄 Chargement des données pour le code: ${sharedCode}`);
+      
       try {
-        const data = JSON.parse(savedData);
-        if (data.cars) setCars(data.cars);
-        if (data.dureeMois) setDureeMois(data.dureeMois);
-        if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
-        if (data.parking !== undefined) setParking(data.parking);
-        if (data.vignette !== undefined) setVignette(data.vignette);
-        if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
-        if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
-        if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
-        if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
-        setIsCodeValid(true);
+        // 1. Essayer de charger depuis l'API SQLite
+        const data = await fetchData(sharedCode);
+        if (data && data.cars) {
+          setCars(data.cars);
+          if (data.dureeMois) setDureeMois(data.dureeMois);
+          if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
+          if (data.parking !== undefined) setParking(data.parking);
+          if (data.vignette !== undefined) setVignette(data.vignette);
+          if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
+          if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
+          if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
+          if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
+          setIsCodeValid(true);
+          console.log('✅ Données chargées depuis l\'API SQLite');
+          return; // Données trouvées dans l'API, on s'arrête là
+        }
       } catch (error) {
-        console.warn("Erreur de chargement localStorage:", error);
+        console.warn('⚠️ API non disponible, fallback localStorage:', error.message);
       }
-    }
+      
+      // 2. Fallback : charger depuis localStorage
+      const savedData = localStorage.getItem(`comparateur_${sharedCode}`);
+      if (savedData) {
+        try {
+          const data = JSON.parse(savedData);
+          if (data.cars) setCars(data.cars);
+          if (data.dureeMois) setDureeMois(data.dureeMois);
+          if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
+          if (data.parking !== undefined) setParking(data.parking);
+          if (data.vignette !== undefined) setVignette(data.vignette);
+          if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
+          if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
+          if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
+          if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
+          setIsCodeValid(true);
+          console.log('📦 Données chargées depuis localStorage');
+        } catch (error) {
+          console.warn("❌ Erreur de chargement localStorage:", error);
+        }
+      } else {
+        console.log('ℹ️ Aucune donnée trouvée, utilisation des valeurs par défaut');
+      }
+    };
+    
+    loadInitialData();
   }, [sharedCode]);
 
   // Sauvegarde automatique quand les données changent
