@@ -817,75 +817,57 @@ const App = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Durée (mois)</label>
-               <input 
-                 type="number" 
-                 inputMode="numeric"
+               <NumericInput
                  value={dureeMois} 
-                 onChange={e => setDureeMois(parseDecimal(e.target.value))} 
+                 onChange={setDureeMois}
                  className="w-full p-2 border rounded-md" 
                />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Km annuel</label>
-               <input 
-                 type="number" 
-                 inputMode="numeric"
+               <NumericInput
                  value={kmAnnuel} 
-                 onChange={e => setKmAnnuel(parseDecimal(e.target.value))} 
+                 onChange={setKmAnnuel}
                  className="w-full p-2 border rounded-md" 
                />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Parking /mois</label>
-               <input 
-                 type="number" 
-                 step="0.01"
-                 inputMode="decimal"
+               <NumericInput
                  value={parking} 
-                 onChange={e => setParking(parseDecimal(e.target.value))} 
+                 onChange={setParking}
                  className="w-full p-2 border rounded-md" 
                />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Vignette /an</label>
-               <input 
-                 type="number" 
-                 inputMode="numeric"
+               <NumericInput
                  value={vignette} 
-                 onChange={e => setVignette(parseDecimal(e.target.value))} 
+                 onChange={setVignette}
                  className="w-full p-2 border rounded-md" 
                />
              </div>
              <div className="col-span-1 border-l border-slate-200 pl-4">
                <label className="block text-xs font-bold text-emerald-600">Crédit (%)</label>
-               <input 
-                 type="number" 
-                 step="0.01"
-                 inputMode="decimal"
+               <NumericInput
                  value={tauxCreditGlobal} 
-                 onChange={e => setTauxCreditGlobal(parseDecimal(e.target.value))} 
+                 onChange={setTauxCreditGlobal}
                  className="w-full p-2 border border-emerald-300 rounded-md bg-emerald-50 text-emerald-900 font-bold" 
                />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-amber-600">Inflation (%)</label>
-               <input 
-                 type="number" 
-                 step="0.01"
-                 inputMode="decimal"
+               <NumericInput
                  value={inflationAnnuelle} 
-                 onChange={e => setInflationAnnuelle(parseDecimal(e.target.value))} 
+                 onChange={setInflationAnnuelle}
                  className="w-full p-2 border border-amber-300 rounded-md bg-amber-50 text-amber-900" 
                />
              </div>
              <div className="col-span-1">
                <label className="block text-xs font-medium text-cyan-600">Placement (%)</label>
-               <input 
-                 type="number" 
-                 step="0.01"
-                 inputMode="decimal"
+               <NumericInput
                  value={tauxPlacement} 
-                 onChange={e => setTauxPlacement(parseDecimal(e.target.value))} 
+                 onChange={setTauxPlacement}
                  className="w-full p-2 border border-cyan-300 rounded-md bg-cyan-50 text-cyan-900" 
                />
              </div>
@@ -1033,44 +1015,36 @@ const App = () => {
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase">Assurance</label>
-                      <input 
-                        type="number" 
-                        step="0.01"
+                      <NumericInput
                         value={car.assurance} 
-                        onChange={e => updateCar(index, 'assurance', e.target.value)}
+                        onChange={val => updateCar(index, 'assurance', val)}
                         className="w-full p-1.5 border border-slate-200 rounded text-sm" 
                         placeholder="0.00"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase">Impôt</label>
-                      <input 
-                        type="number" 
-                        step="0.01"
+                      <NumericInput
                         value={car.impotCantonal} 
-                        onChange={e => updateCar(index, 'impotCantonal', e.target.value)}
+                        onChange={val => updateCar(index, 'impotCantonal', val)}
                         className="w-full p-1.5 border border-slate-200 rounded text-sm" 
                         placeholder="0.00"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase">Entretien</label>
-                      <input 
-                        type="number" 
-                        step="0.01"
+                      <NumericInput
                         value={car.entretien} 
-                        onChange={e => updateCar(index, 'entretien', e.target.value)}
+                        onChange={val => updateCar(index, 'entretien', val)}
                         className="w-full p-1.5 border border-slate-200 rounded text-sm" 
                         placeholder="0.00"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso</label>
-                      <input 
-                        type="number" 
-                        step="0.1"
+                      <NumericInput
                         value={car.consommation} 
-                        onChange={e => updateCar(index, 'consommation', e.target.value)}
+                        onChange={val => updateCar(index, 'consommation', val)}
                         className="w-full p-1.5 border border-slate-200 rounded text-sm" 
                         placeholder="0.0"
                       />
@@ -1079,11 +1053,9 @@ const App = () => {
 
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase">Prix carburant/énergie (CHF)</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
+                    <NumericInput
                       value={car.prixCarburant} 
-                      onChange={e => updateCar(index, 'prixCarburant', e.target.value)}
+                      onChange={val => updateCar(index, 'prixCarburant', val)}
                       className="w-full p-1.5 border border-slate-200 rounded text-sm" 
                       placeholder="0.00"
                     />
