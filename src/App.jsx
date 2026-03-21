@@ -930,13 +930,7 @@ const App = () => {
                       type="text"
                       inputMode="decimal"
                       value={car.prixAchat}
-                      onChange={e => {
-                        const val = e.target.value;
-                        // Accepter chiffres, virgules, points - permettre point/virgule à la fin
-                        if (val === '' || /^[0-9]*[.,]?[0-9]*[.,]?$/.test(val)) {
-                          updateCar(index, 'prixAchat', val);
-                        }
-                      }}
+                      onChange={e => updateCar(index, 'prixAchat', e.target.value)}
                       className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50"
                       placeholder="ex: 52037 ou 52,037"
                     />
@@ -951,12 +945,7 @@ const App = () => {
                           type="text"
                           inputMode="decimal"
                           value={car.apport}
-                          onChange={e => {
-                            const val = e.target.value;
-                            if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
-                              updateCar(index, 'apport', val);
-                            }
-                          }}
+                          onChange={e => updateCar(index, 'apport', e.target.value)}
                           className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white"
                           placeholder="0.00"
                         />
@@ -967,12 +956,7 @@ const App = () => {
                           type="text"
                           inputMode="decimal"
                           value={car.tauxLeasing}
-                          onChange={e => {
-                            const val = e.target.value;
-                            if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
-                              updateCar(index, 'tauxLeasing', val);
-                            }
-                          }}
+                          onChange={e => updateCar(index, 'tauxLeasing', e.target.value)}
                           className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold"
                           placeholder="0.00"
                         />
@@ -988,12 +972,7 @@ const App = () => {
                         type="text"
                         inputMode="decimal"
                         value={car.apportCredit} 
-                        onChange={e => {
-                          const val = e.target.value;
-                          if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
-                            updateCar(index, 'apportCredit', val);
-                          }
-                        }}
+                        onChange={e => updateCar(index, 'apportCredit', e.target.value)}
                         className="w-full p-1.5 border border-emerald-200 rounded text-sm bg-white" 
                         placeholder="0.00"
                       />
@@ -1013,12 +992,7 @@ const App = () => {
                         type="text"
                         inputMode="decimal"
                         value={car.valeurResiduelle} 
-                        onChange={e => {
-                          const val = e.target.value;
-                          if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
-                            updateCar(index, 'valeurResiduelle', val);
-                          }
-                        }}
+                        onChange={e => updateCar(index, 'valeurResiduelle', e.target.value)}
                         className="w-full p-2 border border-slate-300 rounded-lg text-sm" 
                         placeholder="0.00"
                       />
