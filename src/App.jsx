@@ -121,6 +121,9 @@ const App = () => {
   const [tauxCreditGlobal, setTauxCreditGlobal] = useState(4.9);
   const [inflationAnnuelle, setInflationAnnuelle] = useState(2.0);
   const [tauxPlacement, setTauxPlacement] = useState(3.0);
+  const [prixEssence, setPrixEssence] = useState(1.85);
+  const [prixElec, setPrixElec] = useState(0.33);
+  const [ratioElec, setRatioElec] = useState(80);
 
   // --- VÉHICULES (Tableau d'objets dynamique) ---
   const [cars, setCars] = useState(() => {
@@ -138,8 +141,9 @@ const App = () => {
         valeurResiduelle: 23784,
         assurance: 1500,
         impotCantonal: 450,
-        consommation: 7.5, 
-        prixCarburant: 1.85,
+        consoElec: 0, // kWh/100km
+        consoEssence: 7.5, // L/100km
+        risqueDepreciation: 10, // % de risque de dépréciation
         entretien: 0 
       },
       {
@@ -154,8 +158,9 @@ const App = () => {
         valeurResiduelle: 18000,
         assurance: 1300,
         impotCantonal: 250,
-        consommation: 5.5,
-        prixCarburant: 1.85,
+        consoElec: 15, // kWh/100km
+        consoEssence: 5.5, // L/100km
+        risqueDepreciation: 15, // % de risque de dépréciation
         entretien: 700
       },
       {
@@ -170,8 +175,9 @@ const App = () => {
         valeurResiduelle: 26000,
         assurance: 1600,
         impotCantonal: 0, 
-        consommation: 18, 
-        prixCarburant: 0.28, 
+        consoElec: 18, // kWh/100km
+        consoEssence: 0, // L/100km
+        risqueDepreciation: 20, // % de risque de dépréciation
         entretien: 300 
       }
     ];
@@ -234,7 +240,7 @@ const App = () => {
     const newCars = [...cars];
     // Utiliser parseDecimal pour les champs numériques
     const numericFields = ['prixAchat', 'apport', 'apportCredit', 'tauxLeasing', 'valeurResiduelle', 
-                          'assurance', 'impotCantonal', 'consommation', 'prixCarburant', 'entretien'];
+                          'assurance', 'impotCantonal', 'consoElec', 'consoEssence', 'risqueDepreciation', 'entretien'];
     
     if (numericFields.includes(field)) {
       newCars[index][field] = parseDecimal(value);
@@ -452,28 +458,48 @@ const App = () => {
       }
       const coutVehiculeLisseCredit = (car.apportCredit + (pmtCredit * dureeMois) - car.valeurResiduelle) / dureeMois;
 
-      // 3. COMPTANT
-      const coutVehiculeLisseComptant = (car.prixAchat - car.valeurResiduelle) / dureeMois;
+      // 3. COMPTANT avec risque de dépréciation
+      const valeurResiduelleReelle = car.valeurResiduelle * (1 - car.risqueDepreciation / 100);
+      const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
 
-      // Frais Fixes et Variables
+      // A. Coût Énergie Mensuel (Mix PHEV)
+      const distMensuelle = kmAnnuel / 12;
+      const coutEnergieMensuel = (
+        (distMensuelle * (ratioElec / 100) / 100 * car.consoElec * prixElec) +
+        (distMensuelle * (1 - ratioElec / 100) / 100 * car.consoEssence * prixEssence)
+      );
+
+      // B. Coût d'Opportunité (Manque à gagner sur placement)
+      const opportuniteApportMensuel = (car.apport * tauxPlacement / 100) / 12;
+      const opportuniteComptantMensuel = (car.prixAchat * tauxPlacement / 100) / 12;
+
+      // Frais Fixes
       const coutFixeMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking;
-      const coutCarburantAnnuel = (kmAnnuel / 100) * car.consommation * car.prixCarburant;
-      const coutVariableMensuel = (coutCarburantAnnuel + car.entretien) / 12;
+      const coutVariableMensuel = coutEnergieMensuel + (car.entretien / 12);
       const fraisUsage = coutFixeMensuel + coutVariableMensuel;
+
+      // TCO avec coût d'opportunité
+      const tcoLeasing = coutVehiculeLisseLeasing + fraisUsage + opportuniteApportMensuel;
+      const tcoCredit = coutVehiculeLisseCredit + fraisUsage + opportuniteApportMensuel;
+      const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
 
       return {
         ...car,
         fraisUsage,
+        coutEnergieMensuel,
+        opportuniteApportMensuel,
+        opportuniteComptantMensuel,
+        valeurResiduelleReelle,
         leasing: {
           pmt: pmtLeasing > 0 ? pmtLeasing : 0,
-          tco: coutVehiculeLisseLeasing + fraisUsage
+          tco: tcoLeasing
         },
         credit: {
           pmt: pmtCredit > 0 ? pmtCredit : 0,
-          tco: coutVehiculeLisseCredit + fraisUsage
+          tco: tcoCredit
         },
         comptant: {
-          tco: coutVehiculeLisseComptant + fraisUsage
+          tco: tcoComptant
         }
       };
     });
@@ -814,7 +840,7 @@ const App = () => {
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-indigo-800">
             <Wallet className="w-5 h-5" /> Paramètres d'Usage & Économiques
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-10 gap-4">
              <div className="col-span-1">
                <label className="block text-xs font-medium text-slate-500">Durée (mois)</label>
                <NumericInput
@@ -871,6 +897,33 @@ const App = () => {
                  className="w-full p-2 border border-cyan-300 rounded-md bg-cyan-50 text-cyan-900" 
                />
              </div>
+             <div className="col-span-1 border-l border-slate-200 pl-4">
+               <label className="block text-xs font-medium text-orange-600">Essence (CHF/L)</label>
+               <NumericInput
+                 value={prixEssence} 
+                 onChange={setPrixEssence}
+                 className="w-full p-2 border border-orange-300 rounded-md bg-orange-50 text-orange-900" 
+               />
+             </div>
+             <div className="col-span-1">
+               <label className="block text-xs font-medium text-blue-600">Électricité (CHF/kWh)</label>
+               <NumericInput
+                 value={prixElec} 
+                 onChange={setPrixElec}
+                 className="w-full p-2 border border-blue-300 rounded-md bg-blue-50 text-blue-900" 
+               />
+             </div>
+             <div className="col-span-1">
+               <label className="block text-xs font-medium text-purple-600">% Électrique</label>
+               <NumericInput
+                 value={ratioElec} 
+                 onChange={setRatioElec}
+                 className="w-full p-2 border border-purple-300 rounded-md bg-purple-50 text-purple-900" 
+               />
+             </div>
+          </div>
+          <div className="mt-4 text-xs text-slate-500">
+            <span className="font-medium">Coût d'opportunité :</span> Le taux de placement représente le rendement annuel que vous pourriez obtenir en investissant votre argent plutôt que de l'utiliser pour acheter un véhicule. Ce coût est inclus dans le TCO.
           </div>
         </div>
 
@@ -1041,24 +1094,38 @@ const App = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso Élec (kWh/100km)</label>
                       <NumericInput
-                        value={car.consommation} 
-                        onChange={val => updateCar(index, 'consommation', val)}
+                        value={car.consoElec} 
+                        onChange={val => updateCar(index, 'consoElec', val)}
                         className="w-full p-1.5 border border-slate-200 rounded text-sm" 
                         placeholder="0.0"
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Prix carburant/énergie (CHF)</label>
-                    <NumericInput
-                      value={car.prixCarburant} 
-                      onChange={val => updateCar(index, 'prixCarburant', val)}
-                      className="w-full p-1.5 border border-slate-200 rounded text-sm" 
-                      placeholder="0.00"
-                    />
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso Essence (L/100km)</label>
+                      <NumericInput
+                        value={car.consoEssence} 
+                        onChange={val => updateCar(index, 'consoEssence', val)}
+                        className="w-full p-1.5 border border-slate-200 rounded text-sm" 
+                        placeholder="0.0"
+                      />
+                    </div>
+                    <div className="relative">
+                      <label className="block text-[10px] font-bold text-amber-600 uppercase flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Risque Marché (%)
+                      </label>
+                      <NumericInput
+                        value={car.risqueDepreciation} 
+                        onChange={val => updateCar(index, 'risqueDepreciation', val)}
+                        className="w-full p-1.5 border border-amber-300 rounded text-sm bg-amber-50" 
+                        placeholder="0-30"
+                      />
+                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center" title="Impact sur la valeur de revente">
+                        !
+                      </div>
+                    </div>
                   </div>
                 </div>
 
