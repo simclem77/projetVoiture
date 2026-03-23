@@ -137,6 +137,7 @@ const App = () => {
         name: "Votre Devis Actuel",
         photoUrl: "",
         commentaire: "",
+        motorisation: 'PHEV', // ICE, PHEV, BEV
         prixAchat: 52037,
         apport: 15000,
         apportCredit: 15000, // Apport spécifique pour le crédit
@@ -154,6 +155,7 @@ const App = () => {
         name: "Break Hybride (Exemple)",
         photoUrl: "",
         commentaire: "",
+        motorisation: 'PHEV', // ICE, PHEV, BEV
         prixAchat: 46000,
         apport: 10000,
         apportCredit: 10000,
@@ -171,6 +173,7 @@ const App = () => {
         name: "Électrique Familiale",
         photoUrl: "",
         commentaire: "",
+        motorisation: 'BEV', // ICE, PHEV, BEV
         prixAchat: 56000,
         apport: 15000,
         apportCredit: 15000,
@@ -250,6 +253,35 @@ const App = () => {
     } else {
       newCars[index][field] = value;
     }
+
+    // Ajustement automatique des valeurs selon le type de motorisation
+    if (field === 'motorisation') {
+      const car = newCars[index];
+      switch (value) {
+        case 'ICE': // Thermique
+          // Impôt cantonal plus élevé (barème Vaudois)
+          if (car.impotCantonal < 400) car.impotCantonal = 450;
+          // Risque de dépréciation plus fort pour Lausanne 2030
+          if (car.risqueDepreciation < 15) car.risqueDepreciation = 20;
+          // Consommation électrique à 0
+          car.consoElec = 0;
+          break;
+        case 'BEV': // Électrique
+          // Exonération d'impôt cantonal (si toujours en vigueur)
+          car.impotCantonal = 0;
+          // Risque de dépréciation faible
+          if (car.risqueDepreciation > 10) car.risqueDepreciation = 5;
+          // Consommation essence à 0
+          car.consoEssence = 0;
+          break;
+        case 'PHEV': // Hybride Rechargeable
+          // Valeurs intermédiaires
+          if (car.impotCantonal === 0) car.impotCantonal = 250;
+          if (car.risqueDepreciation < 10) car.risqueDepreciation = 15;
+          break;
+      }
+    }
+
     setCars(newCars);
   };
 
@@ -436,12 +468,25 @@ const App = () => {
   // --- MOTEUR DE CALCUL ---
   const calculateResults = () => {
     return cars.map(car => {
-      // A. Coût Énergie Mensuel (Mix PHEV)
+      // A. Coût Énergie Mensuel (adapté au type de motorisation)
       const distMensuelle = kmAnnuel / 12;
-      const coutEnergieMensuel = (
-        (distMensuelle * (ratioElec / 100) / 100 * car.consoElec * prixElec) +
-        (distMensuelle * (1 - ratioElec / 100) / 100 * car.consoEssence * prixEssence)
-      );
+      let coutEnergieMensuel = 0;
+      
+      switch (car.motorisation) {
+        case 'ICE': // Thermique
+          coutEnergieMensuel = (distMensuelle / 100) * car.consoEssence * prixEssence;
+          break;
+        case 'BEV': // Électrique
+          coutEnergieMensuel = (distMensuelle / 100) * car.consoElec * prixElec;
+          break;
+        case 'PHEV': // Hybride Rechargeable
+        default:
+          coutEnergieMensuel = (
+            (distMensuelle * (ratioElec / 100) / 100 * car.consoElec * prixElec) +
+            (distMensuelle * (1 - ratioElec / 100) / 100 * car.consoEssence * prixEssence)
+          );
+          break;
+      }
 
       // B. Coût d'Opportunité (Manque à gagner sur placement)
       const opportuniteApportLeasingMensuel = (car.apport * tauxPlacement / 100) / 12;
@@ -992,6 +1037,9 @@ const App = () => {
                  onChange={setRatioElec}
                  className="w-full p-2 border border-purple-300 rounded-md bg-purple-50 text-purple-900" 
                />
+               <div className="text-xs text-purple-500 mt-1">
+                 S'applique uniquement aux véhicules PHEV
+               </div>
              </div>
           </div>
           <div className="mt-4 text-xs text-slate-500">
@@ -1060,6 +1108,25 @@ const App = () => {
                         </button>
                       </div>
                     )}
+                  </div>
+
+                  {/* Type de Motorisation */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase">Type de Motorisation</label>
+                    <select
+                      value={car.motorisation || 'PHEV'}
+                      onChange={e => updateCar(index, 'motorisation', e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
+                    >
+                      <option value="ICE">ICE (Thermique)</option>
+                      <option value="PHEV">PHEV (Hybride Rechargeable)</option>
+                      <option value="BEV">BEV (100% Électrique)</option>
+                    </select>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {car.motorisation === 'ICE' && 'Calcul uniquement sur la consommation essence'}
+                      {car.motorisation === 'BEV' && 'Calcul uniquement sur la consommation électrique'}
+                      {car.motorisation === 'PHEV' && 'Calcul mixte selon le % électrique'}
+                    </div>
                   </div>
 
                   {/* Commentaire */}
