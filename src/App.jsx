@@ -1389,6 +1389,18 @@ const App = () => {
                       </div>
                     </div>
                     
+                    {/* URL Photo */}
+                    <div className="mb-3">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase">URL Photo</label>
+                      <input 
+                        type="text" 
+                        value={car.photoUrl} 
+                        onChange={e => updateCar(index, 'photoUrl', e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white"
+                        placeholder="https://example.com/photo.jpg"
+                      />
+                    </div>
+                    
                     {/* Commentaire rapide */}
                     <div className="mt-4">
                       <label className="block text-[10px] font-bold text-slate-500 uppercase">Commentaire</label>
