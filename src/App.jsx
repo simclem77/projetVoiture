@@ -669,29 +669,41 @@ const App = () => {
       const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
 
-      // Breakdown simplifié avec 5 catégories claires
+      // Breakdown simplifié avec 5 catégories claires (logique apport corrigée)
+      const depreciationTotale = car.prixAchat - valeurResiduelleReelle;
       const fraisFixesMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking + (car.entretien / 12);
       
+      // Leasing : apport limité à la dépréciation totale
+      const apportLisseLeasing = Math.min(car.apport, depreciationTotale) / dureeMois;
+      const mensuelLeasing = pmtLeasing;
+      
       const breakdownLeasing = {
-        apportLisse: car.apport / dureeMois,
-        mensuel: pmtLeasing,
+        apportLisse: apportLisseLeasing,
+        mensuel: mensuelLeasing,
         energie: coutEnergieMensuel,
         fraisFixes: fraisFixesMensuel,
         opportunite: opportuniteApportLeasingMensuel,
         total: tcoLeasing
       };
 
+      // Crédit : apport limité à la dépréciation totale, mensualité ajustée
+      const apportLisseCredit = Math.min(car.apportCredit, depreciationTotale) / dureeMois;
+      const mensuelCredit = Math.max(0, pmtCredit - (valeurResiduelleReelle / dureeMois));
+      
       const breakdownCredit = {
-        apportLisse: car.apportCredit / dureeMois,
-        mensuel: pmtCredit,
+        apportLisse: apportLisseCredit,
+        mensuel: mensuelCredit,
         energie: coutEnergieMensuel,
         fraisFixes: fraisFixesMensuel,
         opportunite: opportuniteApportCreditMensuel,
         total: tcoCredit
       };
 
+      // Comptant : apport = dépréciation totale (pas de mensualité)
+      const apportLisseComptant = depreciationTotale / dureeMois;
+      
       const breakdownComptant = {
-        apportLisse: (car.prixAchat - valeurResiduelleReelle) / dureeMois,
+        apportLisse: apportLisseComptant,
         mensuel: 0,
         energie: coutEnergieMensuel,
         fraisFixes: fraisFixesMensuel,
