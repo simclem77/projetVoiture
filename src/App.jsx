@@ -132,28 +132,28 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
     { key: 'opportunite', label: 'Opportunité', tooltip: 'Gain manqué sur le placement' }
   ];
 
-  // Couleurs selon le type de financement (5 catégories)
+  // Couleurs selon le type de financement (5 catégories avec dégradation logique)
   const colorSchemes = {
     leasing: {
-      apportLisse: 'bg-blue-900',
-      banque: 'bg-blue-700',
-      energie: 'bg-blue-600',
-      fraisFixes: 'bg-blue-400',
-      opportunite: 'bg-indigo-500'
+      apportLisse: 'bg-blue-950',    // Nuance 950 (très sombre)
+      banque: 'bg-blue-700',         // Nuance 700 (sombre)
+      energie: 'bg-blue-500',        // Nuance 500 (moyen)
+      fraisFixes: 'bg-blue-300',     // Nuance 300 (clair)
+      opportunite: 'bg-blue-200'     // Nuance 200 (pastel)
     },
     credit: {
-      apportLisse: 'bg-emerald-900',
-      banque: 'bg-emerald-700',
-      energie: 'bg-emerald-600',
-      fraisFixes: 'bg-emerald-400',
-      opportunite: 'bg-teal-500'
+      apportLisse: 'bg-emerald-950', // Nuance 950 (très sombre)
+      banque: 'bg-emerald-700',      // Nuance 700 (sombre)
+      energie: 'bg-emerald-500',     // Nuance 500 (moyen)
+      fraisFixes: 'bg-emerald-300',  // Nuance 300 (clair)
+      opportunite: 'bg-emerald-200'  // Nuance 200 (pastel)
     },
     comptant: {
-      apportLisse: 'bg-purple-900',
-      banque: 'bg-purple-700',
-      energie: 'bg-purple-600',
-      fraisFixes: 'bg-purple-400',
-      opportunite: 'bg-purple-500'
+      apportLisse: 'bg-purple-950',  // Nuance 950 (très sombre)
+      banque: 'bg-purple-700',       // Nuance 700 (sombre)
+      energie: 'bg-purple-500',      // Nuance 500 (moyen)
+      fraisFixes: 'bg-purple-300',   // Nuance 300 (clair)
+      opportunite: 'bg-purple-200'   // Nuance 200 (pastel)
     }
   };
 
@@ -669,16 +669,15 @@ const App = () => {
       const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
 
-      // Breakdown simplifié avec 5 catégories claires (Logique corrigée)
-      const depreciationTotale = car.prixAchat - valeurResiduelleReelle;
+      // TCO 5 Piliers : Flux Banque & Apport Lissé Brut
       const fraisFixesMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking + (car.entretien / 12);
       
-      // Leasing : Banque = pmt, Apport Lissé = coût net du capital
+      // Mode LEASING : apportLisse = apport / durée, banque = pmt
+      const apportLisseLeasing = car.apport / dureeMois;
       const banqueLeasing = pmtLeasing;
-      const apportLisseLeasing = ((car.apport + (pmtLeasing * dureeMois) - car.valeurResiduelle) / dureeMois) - pmtLeasing;
       
       const breakdownLeasing = {
-        apportLisse: Math.max(0, apportLisseLeasing), // Si négatif, fixer à 0
+        apportLisse: apportLisseLeasing,
         banque: banqueLeasing,
         energie: coutEnergieMensuel,
         fraisFixes: fraisFixesMensuel,
@@ -686,20 +685,21 @@ const App = () => {
         total: tcoLeasing
       };
 
-      // Crédit : Banque = pmt, Apport Lissé = coût net du capital
-      const banqueCredit = pmtCredit;
-      const apportLisseCredit = ((car.apportCredit + (pmtCredit * dureeMois) - valeurResiduelleReelle) / dureeMois) - pmtCredit;
+      // Mode CRÉDIT : apportLisse = apportCredit / durée, banque = pmt - (valeurRésiduelle / durée)
+      const apportLisseCredit = car.apportCredit / dureeMois;
+      const banqueCredit = pmtCredit - (valeurResiduelleReelle / dureeMois);
       
       const breakdownCredit = {
-        apportLisse: Math.max(0, apportLisseCredit), // Si négatif, fixer à 0
-        banque: banqueCredit,
+        apportLisse: apportLisseCredit,
+        banque: Math.max(0, banqueCredit), // Éviter les valeurs négatives
         energie: coutEnergieMensuel,
         fraisFixes: fraisFixesMensuel,
         opportunite: opportuniteApportCreditMensuel,
         total: tcoCredit
       };
 
-      // Comptant : pas de banque, apport = dépréciation totale
+      // Mode COMPTANT : apportLisse = dépréciation totale / durée, banque = 0
+      const depreciationTotale = car.prixAchat - valeurResiduelleReelle;
       const apportLisseComptant = depreciationTotale / dureeMois;
       
       const breakdownComptant = {
@@ -1091,28 +1091,28 @@ const App = () => {
                   { key: 'opportunite', label: 'Opportunité', tooltip: 'Gain manqué sur le placement financier' }
                 ];
 
-                // Couleurs selon le type (5 catégories avec "Banque")
+                // Couleurs selon le type (5 catégories avec dégradation logique)
                 const colorSchemes = {
                   blue: {
-                    apportLisse: 'bg-blue-900',
-                    banque: 'bg-blue-700',
-                    energie: 'bg-blue-600',
-                    fraisFixes: 'bg-blue-400',
-                    opportunite: 'bg-sky-200'
+                    apportLisse: 'bg-blue-950',    // Nuance 950 (très sombre)
+                    banque: 'bg-blue-700',         // Nuance 700 (sombre)
+                    energie: 'bg-blue-500',        // Nuance 500 (moyen)
+                    fraisFixes: 'bg-blue-300',     // Nuance 300 (clair)
+                    opportunite: 'bg-blue-200'     // Nuance 200 (pastel)
                   },
                   emerald: {
-                    apportLisse: 'bg-emerald-900',
-                    banque: 'bg-emerald-700',
-                    energie: 'bg-emerald-600',
-                    fraisFixes: 'bg-emerald-400',
-                    opportunite: 'bg-green-200'
+                    apportLisse: 'bg-emerald-950', // Nuance 950 (très sombre)
+                    banque: 'bg-emerald-700',      // Nuance 700 (sombre)
+                    energie: 'bg-emerald-500',     // Nuance 500 (moyen)
+                    fraisFixes: 'bg-emerald-300',  // Nuance 300 (clair)
+                    opportunite: 'bg-emerald-200'  // Nuance 200 (pastel)
                   },
                   purple: {
-                    apportLisse: 'bg-purple-900',
-                    banque: 'bg-purple-700',
-                    energie: 'bg-purple-600',
-                    fraisFixes: 'bg-purple-400',
-                    opportunite: 'bg-fuchsia-200'
+                    apportLisse: 'bg-purple-950',  // Nuance 950 (très sombre)
+                    banque: 'bg-purple-700',       // Nuance 700 (sombre)
+                    energie: 'bg-purple-500',      // Nuance 500 (moyen)
+                    fraisFixes: 'bg-purple-300',   // Nuance 300 (clair)
+                    opportunite: 'bg-purple-200'   // Nuance 200 (pastel)
                   }
                 };
 
