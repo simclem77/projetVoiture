@@ -669,16 +669,16 @@ const App = () => {
       const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
 
-      // Breakdown simplifié avec 5 catégories claires (Nouvelles formules)
+      // Breakdown simplifié avec 5 catégories claires (Logique corrigée)
       const depreciationTotale = car.prixAchat - valeurResiduelleReelle;
       const fraisFixesMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking + (car.entretien / 12);
       
-      // Leasing : banque = pmt, apportLisse = (Apport - ValeurResiduelleReelle) / dureeMois
+      // Leasing : Banque = pmt, Apport Lissé = coût net du capital
       const banqueLeasing = pmtLeasing;
-      const apportLisseLeasing = (car.apport - car.valeurResiduelle) / dureeMois;
+      const apportLisseLeasing = ((car.apport + (pmtLeasing * dureeMois) - car.valeurResiduelle) / dureeMois) - pmtLeasing;
       
       const breakdownLeasing = {
-        apportLisse: Math.max(0, apportLisseLeasing), // Éviter les valeurs négatives
+        apportLisse: Math.max(0, apportLisseLeasing), // Si négatif, fixer à 0
         banque: banqueLeasing,
         energie: coutEnergieMensuel,
         fraisFixes: fraisFixesMensuel,
@@ -686,12 +686,12 @@ const App = () => {
         total: tcoLeasing
       };
 
-      // Crédit : banque = pmt, apportLisse = (ApportCredit - ValeurResiduelleReelle) / dureeMois
+      // Crédit : Banque = pmt, Apport Lissé = coût net du capital
       const banqueCredit = pmtCredit;
-      const apportLisseCredit = (car.apportCredit - valeurResiduelleReelle) / dureeMois;
+      const apportLisseCredit = ((car.apportCredit + (pmtCredit * dureeMois) - valeurResiduelleReelle) / dureeMois) - pmtCredit;
       
       const breakdownCredit = {
-        apportLisse: Math.max(0, apportLisseCredit), // Éviter les valeurs négatives
+        apportLisse: Math.max(0, apportLisseCredit), // Si négatif, fixer à 0
         banque: banqueCredit,
         energie: coutEnergieMensuel,
         fraisFixes: fraisFixesMensuel,
