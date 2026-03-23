@@ -89,6 +89,101 @@ const formatDecimal = (value, decimals = 2) => {
   return num.toFixed(decimals); // Utilise le point comme séparateur décimal
 };
 
+// Composant StackedBarChart pour les graphiques TCO empilés
+const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
+  const categories = [
+    { key: 'financement', label: 'Financement', tooltip: 'Loyer leasing, mensualité crédit ou dépréciation mensuelle cash' },
+    { key: 'energie', label: 'Énergie', tooltip: motorisation === 'ICE' ? 'Essence uniquement' : motorisation === 'BEV' ? 'Électricité uniquement' : 'Mix PHEV (électricité + essence)' },
+    { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt + Parking + Vignette' },
+    { key: 'entretien', label: 'Entretien', tooltip: 'Frais de maintenance mensuels' },
+    { key: 'opportunite', label: 'Opportunité', tooltip: 'Manque à gagner sur le placement de l\'apport ou du capital' }
+  ];
+
+  // Couleurs selon le type de financement
+  const colorSchemes = {
+    leasing: {
+      financement: 'bg-blue-800',
+      energie: 'bg-blue-600',
+      fraisFixes: 'bg-blue-400',
+      entretien: 'bg-blue-300',
+      opportunite: 'bg-indigo-500'
+    },
+    credit: {
+      financement: 'bg-emerald-800',
+      energie: 'bg-emerald-600',
+      fraisFixes: 'bg-emerald-400',
+      entretien: 'bg-emerald-300',
+      opportunite: 'bg-teal-500'
+    },
+    comptant: {
+      financement: 'bg-purple-800',
+      energie: 'bg-purple-600',
+      fraisFixes: 'bg-purple-400',
+      entretien: 'bg-purple-300',
+      opportunite: 'bg-purple-500'
+    }
+  };
+
+  const colors = colorSchemes[type] || colorSchemes.leasing;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center text-xs">
+        <span className="font-medium text-slate-700">
+          {type === 'leasing' ? 'Leasing' : type === 'credit' ? 'Crédit' : 'Comptant'}
+        </span>
+        <span className="font-bold text-slate-800">{breakdown.total.toFixed(0)} CHF</span>
+      </div>
+      
+      <div className="w-full h-6 bg-slate-100 rounded-full overflow-hidden flex relative group">
+        {categories.map(category => {
+          const value = breakdown[category.key];
+          const percentage = (value / breakdown.total) * 100;
+          
+          if (value <= 0) return null;
+          
+          return (
+            <div
+              key={category.key}
+              className={`h-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
+              style={{ width: `${percentage}%` }}
+              title={`${category.label}: ${value.toFixed(0)} CHF (${percentage.toFixed(1)}%) - ${category.tooltip}`}
+            >
+              <div className="relative w-full h-full">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                    {percentage.toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* Légende des segments */}
+      <div className="flex flex-wrap gap-1.5 text-[10px]">
+        {categories.map(category => {
+          const value = breakdown[category.key];
+          if (value <= 0) return null;
+          
+          return (
+            <div
+              key={category.key}
+              className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 rounded border border-slate-200"
+              title={`${category.label}: ${value.toFixed(0)} CHF - ${category.tooltip}`}
+            >
+              <div className={`w-2 h-2 ${colors[category.key]} rounded`}></div>
+              <span className="text-slate-700 font-medium">{category.label}</span>
+              <span className="text-slate-500">{value.toFixed(0)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const App = () => {
   // --- ÉTAT AUTH & SAUVEGARDE ---
   const [user, setUser] = useState(null);
@@ -532,6 +627,34 @@ const App = () => {
       const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
 
+      // Breakdown détaillé pour les graphiques empilés
+      const breakdownLeasing = {
+        financement: coutVehiculeLisseLeasing,
+        energie: coutEnergieMensuel,
+        fraisFixes: coutFixeMensuel,
+        entretien: car.entretien / 12,
+        opportunite: opportuniteApportLeasingMensuel,
+        total: tcoLeasing
+      };
+
+      const breakdownCredit = {
+        financement: coutVehiculeLisseCredit,
+        energie: coutEnergieMensuel,
+        fraisFixes: coutFixeMensuel,
+        entretien: car.entretien / 12,
+        opportunite: opportuniteApportCreditMensuel,
+        total: tcoCredit
+      };
+
+      const breakdownComptant = {
+        financement: coutVehiculeLisseComptant,
+        energie: coutEnergieMensuel,
+        fraisFixes: coutFixeMensuel,
+        entretien: car.entretien / 12,
+        opportunite: opportuniteComptantMensuel,
+        total: tcoComptant
+      };
+
       return {
         ...car,
         fraisUsage,
@@ -542,14 +665,17 @@ const App = () => {
         valeurResiduelleReelle,
         leasing: {
           pmt: pmtLeasing > 0 ? pmtLeasing : 0,
-          tco: tcoLeasing
+          tco: tcoLeasing,
+          breakdown: breakdownLeasing
         },
         credit: {
           pmt: pmtCredit > 0 ? pmtCredit : 0,
-          tco: tcoCredit
+          tco: tcoCredit,
+          breakdown: breakdownCredit
         },
         comptant: {
-          tco: tcoComptant
+          tco: tcoComptant,
+          breakdown: breakdownComptant
         }
       };
     });
@@ -1276,36 +1402,33 @@ const App = () => {
                     <div className="font-bold text-slate-700 text-xl mt-1">{results[index].fraisUsage.toFixed(0)} <span className="text-sm font-normal">CHF</span></div>
                   </div>
 
-                  {/* LEASING */}
-                  <div className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
-                    <div className="flex justify-between items-start mb-1">
-                      <div>
-                        <span className="font-bold text-blue-800 text-sm block">Leasing (TCO)</span>
-                        <span className="text-[10px] text-blue-600">Mensuel banque: {results[index].leasing.pmt.toFixed(0)} CHF</span>
-                      </div>
-                      <span className="text-xl font-black text-blue-700">{results[index].leasing.tco.toFixed(0)} <span className="text-sm font-normal">CHF</span></span>
+                  {/* Graphiques TCO Empilés */}
+                  <div className="space-y-4">
+                    <div className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
+                      <StackedBarChart 
+                        breakdown={results[index].leasing.breakdown}
+                        type="leasing"
+                        vehicleName={car.name}
+                        motorisation={car.motorisation}
+                      />
                     </div>
-                  </div>
 
-                  {/* CRÉDIT */}
-                  <div className="bg-white border border-emerald-200 rounded-lg p-3 shadow-sm">
-                    <div className="flex justify-between items-start mb-1">
-                      <div>
-                        <span className="font-bold text-emerald-800 text-sm block">Crédit (TCO)</span>
-                        <span className="text-[10px] text-emerald-600">Mensuel banque: {results[index].credit.pmt.toFixed(0)} CHF</span>
-                      </div>
-                      <span className="text-xl font-black text-emerald-700">{results[index].credit.tco.toFixed(0)} <span className="text-sm font-normal">CHF</span></span>
+                    <div className="bg-white border border-emerald-200 rounded-lg p-3 shadow-sm">
+                      <StackedBarChart 
+                        breakdown={results[index].credit.breakdown}
+                        type="credit"
+                        vehicleName={car.name}
+                        motorisation={car.motorisation}
+                      />
                     </div>
-                  </div>
 
-                  {/* COMPTANT */}
-                  <div className="bg-white border border-purple-200 rounded-lg p-3 shadow-sm">
-                    <div className="flex justify-between items-start mb-1">
-                      <div>
-                        <span className="font-bold text-purple-800 text-sm block">Comptant</span>
-                        <span className="text-[10px] text-purple-600">TCO sans intérêts</span>
-                      </div>
-                      <span className="text-xl font-black text-purple-700">{results[index].comptant.tco.toFixed(0)} <span className="text-sm font-normal">CHF</span></span>
+                    <div className="bg-white border border-purple-200 rounded-lg p-3 shadow-sm">
+                      <StackedBarChart 
+                        breakdown={results[index].comptant.breakdown}
+                        type="comptant"
+                        vehicleName={car.name}
+                        motorisation={car.motorisation}
+                      />
                     </div>
                   </div>
                 </div>
