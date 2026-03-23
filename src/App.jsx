@@ -937,17 +937,17 @@ const App = () => {
           )}
         </div>
 
-        {/* SYNTHÈSE GRAPHIQUE UNIFIÉE */}
+        {/* SYNTHÈSE GRAPHIQUE UNIFIÉE (Barres Empilées) */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-slate-800">
             <BarChart3 className="w-6 h-6 text-indigo-500" /> 
-            Comparaison des Coûts Mensuels (Tous Modes)
+            Comparaison des Coûts Mensuels (Tous Modes) - Décomposition Détailée
           </h2>
           
-          {/* Graphique unifié avec toutes les barres */}
+          {/* Graphique unifié avec barres empilées */}
           <div className="space-y-6">
-            {/* Légende */}
-            <div className="flex flex-wrap gap-4 justify-center">
+            {/* Légende des modes */}
+            <div className="flex flex-wrap gap-4 justify-center mb-2">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-blue-500 rounded"></div>
                 <span className="text-sm font-medium text-slate-700">Leasing</span>
@@ -961,46 +961,153 @@ const App = () => {
                 <span className="text-sm font-medium text-slate-700">Comptant</span>
               </div>
             </div>
+
+            {/* Légende des segments */}
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <h4 className="text-xs font-bold text-slate-600 mb-2">Légende des segments (du plus foncé au plus clair) :</h4>
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 bg-slate-800 rounded"></div>
+                  <span className="text-xs text-slate-700">Financement</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 bg-slate-600 rounded"></div>
+                  <span className="text-xs text-slate-700">Énergie</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 bg-slate-400 rounded"></div>
+                  <span className="text-xs text-slate-700">Frais Fixes</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 bg-slate-300 rounded"></div>
+                  <span className="text-xs text-slate-700">Entretien</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 bg-slate-200 rounded"></div>
+                  <span className="text-xs text-slate-700">Opportunité</span>
+                </div>
+              </div>
+            </div>
             
-            {/* Graphique principal */}
+            {/* Graphique principal avec barres empilées */}
             <div className="space-y-4">
               {(() => {
                 // Créer un tableau plat avec toutes les données
                 const allData = [];
                 results.forEach(r => {
                   allData.push(
-                    { type: 'leasing', vehicle: r.name, value: r.leasing.tco, color: 'bg-blue-500', textColor: 'text-blue-700' },
-                    { type: 'credit', vehicle: r.name, value: r.credit.tco, color: 'bg-emerald-500', textColor: 'text-emerald-700' },
-                    { type: 'comptant', vehicle: r.name, value: r.comptant.tco, color: 'bg-purple-500', textColor: 'text-purple-700' }
+                    { 
+                      type: 'leasing', 
+                      vehicle: r.name, 
+                      breakdown: r.leasing.breakdown,
+                      color: 'blue',
+                      total: r.leasing.tco
+                    },
+                    { 
+                      type: 'credit', 
+                      vehicle: r.name, 
+                      breakdown: r.credit.breakdown,
+                      color: 'emerald',
+                      total: r.credit.tco
+                    },
+                    { 
+                      type: 'comptant', 
+                      vehicle: r.name, 
+                      breakdown: r.comptant.breakdown,
+                      color: 'purple',
+                      total: r.comptant.tco
+                    }
                   );
                 });
                 
                 // Trier par valeur croissante
-                allData.sort((a, b) => a.value - b.value);
+                allData.sort((a, b) => a.total - b.total);
                 
                 // Trouver la valeur max pour l'échelle
-                const maxValue = Math.max(...allData.map(d => d.value), 1);
+                const maxValue = Math.max(...allData.map(d => d.total), 1);
                 
-                return allData.map((item, index) => (
-                  <div key={`unified-${index}`} className="space-y-1">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 ${item.color} rounded`}></div>
-                        <span className="font-medium text-slate-700 text-sm">
-                          {item.vehicle} - {item.type === 'leasing' ? 'Leasing' : item.type === 'credit' ? 'Crédit' : 'Comptant'}
+                // Définir les catégories et couleurs
+                const categories = [
+                  { key: 'financement', label: 'Financement', tooltip: 'Loyer leasing, mensualité crédit ou amortissement net cash' },
+                  { key: 'energie', label: 'Énergie', tooltip: 'Mix Électricité + Essence selon le type de moteur' },
+                  { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt Vaud + Macaron Lausanne + Parking' },
+                  { key: 'entretien', label: 'Entretien', tooltip: 'Provision mensuelle maintenance' },
+                  { key: 'opportunite', label: 'Opportunité', tooltip: 'Manque à gagner sur le placement financier' }
+                ];
+
+                // Couleurs selon le type
+                const colorSchemes = {
+                  blue: {
+                    financement: 'bg-blue-800',
+                    energie: 'bg-blue-600',
+                    fraisFixes: 'bg-blue-400',
+                    entretien: 'bg-blue-300',
+                    opportunite: 'bg-sky-200'
+                  },
+                  emerald: {
+                    financement: 'bg-emerald-800',
+                    energie: 'bg-emerald-600',
+                    fraisFixes: 'bg-emerald-400',
+                    entretien: 'bg-emerald-300',
+                    opportunite: 'bg-green-200'
+                  },
+                  purple: {
+                    financement: 'bg-purple-800',
+                    energie: 'bg-purple-600',
+                    fraisFixes: 'bg-purple-400',
+                    entretien: 'bg-purple-300',
+                    opportunite: 'bg-fuchsia-200'
+                  }
+                };
+
+                return allData.map((item, index) => {
+                  const colors = colorSchemes[item.color];
+                  const typeLabel = item.type === 'leasing' ? 'Leasing' : item.type === 'credit' ? 'Crédit' : 'Comptant';
+                  
+                  return (
+                    <div key={`unified-stacked-${index}`} className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 ${item.type === 'leasing' ? 'bg-blue-500' : item.type === 'credit' ? 'bg-emerald-500' : 'bg-purple-500'} rounded`}></div>
+                          <span className="font-medium text-slate-700 text-sm">
+                            {item.vehicle} - {typeLabel}
+                          </span>
+                        </div>
+                        <span className={`font-bold ${item.type === 'leasing' ? 'text-blue-700' : item.type === 'credit' ? 'text-emerald-700' : 'text-purple-700'} text-sm`}>
+                          {item.total.toFixed(0)} CHF
                         </span>
                       </div>
-                      <span className={`font-bold ${item.textColor} text-sm`}>{item.value.toFixed(0)} CHF</span>
+                      
+                      {/* Barre empilée */}
+                      <div className="w-full h-5 bg-slate-100 rounded-full overflow-hidden flex relative group">
+                        {categories.map(category => {
+                          const value = item.breakdown[category.key];
+                          const percentage = (value / item.total) * 100;
+                          const widthPercentage = (value / maxValue) * 100;
+                          
+                          if (value <= 0) return null;
+                          
+                          return (
+                            <div
+                              key={`${index}-${category.key}`}
+                              className={`h-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
+                              style={{ width: `${widthPercentage}%` }}
+                              title={`${category.label}: ${value.toFixed(0)} CHF (${percentage.toFixed(1)}%) - ${category.tooltip}`}
+                            >
+                              <div className="relative w-full h-full">
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <span className="text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {percentage.toFixed(0)}%
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
-                      <div 
-                        className={`${item.color} h-4 rounded-full transition-all duration-500`}
-                        style={{ width: `${(item.value / maxValue) * 100}%` }}
-                        title={`${item.vehicle} - ${item.type === 'leasing' ? 'Leasing' : item.type === 'credit' ? 'Crédit' : 'Comptant'}: ${item.value.toFixed(0)} CHF`}
-                      ></div>
-                    </div>
-                  </div>
-                ));
+                  );
+                });
               })()}
             </div>
             
