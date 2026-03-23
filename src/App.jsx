@@ -669,16 +669,15 @@ const App = () => {
       const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
 
-      // Breakdown simplifié avec 5 catégories claires (logique apport corrigée)
-      const depreciationTotale = car.prixAchat - valeurResiduelleReelle;
+      // Breakdown simplifié avec 5 catégories claires (Priorité au Flux Mensuel Réel)
       const fraisFixesMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking + (car.entretien / 12);
       
-      // Leasing : apport limité à la dépréciation totale
-      const apportLisseLeasing = Math.min(car.apport, depreciationTotale) / dureeMois;
+      // Leasing : mensuel = pmt (flux réel), apportLisse = coût net du capital
       const mensuelLeasing = pmtLeasing;
+      const apportLisseLeasing = ((car.apport + (pmtLeasing * dureeMois) - car.valeurResiduelle) / dureeMois) - pmtLeasing;
       
       const breakdownLeasing = {
-        apportLisse: apportLisseLeasing,
+        apportLisse: Math.max(0, apportLisseLeasing), // Éviter les valeurs négatives
         mensuel: mensuelLeasing,
         energie: coutEnergieMensuel,
         fraisFixes: fraisFixesMensuel,
@@ -686,12 +685,12 @@ const App = () => {
         total: tcoLeasing
       };
 
-      // Crédit : apport limité à la dépréciation totale, mensualité ajustée
-      const apportLisseCredit = Math.min(car.apportCredit, depreciationTotale) / dureeMois;
-      const mensuelCredit = Math.max(0, pmtCredit - (valeurResiduelleReelle / dureeMois));
+      // Crédit : mensuel = pmt (flux réel), apportLisse = coût net du capital
+      const mensuelCredit = pmtCredit;
+      const apportLisseCredit = ((car.apportCredit + (pmtCredit * dureeMois) - valeurResiduelleReelle) / dureeMois) - pmtCredit;
       
       const breakdownCredit = {
-        apportLisse: apportLisseCredit,
+        apportLisse: Math.max(0, apportLisseCredit), // Éviter les valeurs négatives
         mensuel: mensuelCredit,
         energie: coutEnergieMensuel,
         fraisFixes: fraisFixesMensuel,
@@ -699,8 +698,8 @@ const App = () => {
         total: tcoCredit
       };
 
-      // Comptant : apport = dépréciation totale (pas de mensualité)
-      const apportLisseComptant = depreciationTotale / dureeMois;
+      // Comptant : pas de mensualité, apport = dépréciation totale
+      const apportLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       
       const breakdownComptant = {
         apportLisse: apportLisseComptant,
