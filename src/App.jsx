@@ -679,8 +679,9 @@ const App = () => {
 
       // Breakdown détaillé pour les graphiques empilés (Financement décomposé)
       const apportLisseLeasing = car.apport / dureeMois;
-      const amortissementLeasing = (car.prixAchat - car.apport - car.valeurResiduelle) / dureeMois;
-      const interetsLeasing = pmtLeasing - ((car.prixAchat - car.apport - car.valeurResiduelle) / dureeMois);
+      const capitalEmprunteLeasing = car.prixAchat - car.apport;
+      const amortissementLeasing = (capitalEmprunteLeasing - car.valeurResiduelle) / dureeMois;
+      const interetsLeasing = ((pmtLeasing * dureeMois) - capitalEmprunteLeasing) / dureeMois;
       
       const breakdownLeasing = {
         apportLisse: apportLisseLeasing,
@@ -694,8 +695,9 @@ const App = () => {
       };
 
       const apportLisseCredit = car.apportCredit / dureeMois;
-      const amortissementCredit = (car.prixAchat - car.apportCredit - car.valeurResiduelle) / dureeMois;
-      const interetsCredit = pmtCredit - ((car.prixAchat - car.apportCredit - car.valeurResiduelle) / dureeMois);
+      const capitalEmprunteCredit = car.prixAchat - car.apportCredit;
+      const amortissementCredit = (capitalEmprunteCredit - valeurResiduelleReelle) / dureeMois;
+      const interetsCredit = ((pmtCredit * dureeMois) - capitalEmprunteCredit) / dureeMois;
       
       const breakdownCredit = {
         apportLisse: apportLisseCredit,
