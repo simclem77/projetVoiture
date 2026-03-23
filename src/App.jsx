@@ -89,6 +89,40 @@ const formatDecimal = (value, decimals = 2) => {
   return num.toFixed(decimals); // Utilise le point comme séparateur décimal
 };
 
+// Composant Tooltip optimisé
+const Tooltip = ({ children, content, position = 'top' }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  
+  return (
+    <div className="relative inline-block">
+      <div
+        onMouseEnter={() => setIsVisible(true)}
+        onMouseLeave={() => setIsVisible(false)}
+        className="cursor-help"
+      >
+        {children}
+      </div>
+      
+      {isVisible && (
+        <div className={`
+          absolute z-50 px-3 py-2 text-xs font-medium text-white bg-slate-800 rounded-lg shadow-lg
+          whitespace-nowrap pointer-events-none
+          ${position === 'top' ? 'bottom-full mb-2 left-1/2 transform -translate-x-1/2' : ''}
+          ${position === 'bottom' ? 'top-full mt-2 left-1/2 transform -translate-x-1/2' : ''}
+        `}>
+          {content}
+          {/* Flèche du tooltip */}
+          <div className={`
+            absolute w-2 h-2 bg-slate-800 transform rotate-45
+            ${position === 'top' ? 'top-full -mt-1 left-1/2 -translate-x-1/2' : ''}
+            ${position === 'bottom' ? 'bottom-full -mb-1 left-1/2 -translate-x-1/2' : ''}
+          `}></div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Composant StackedBarChart pour les graphiques TCO empilés
 const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
   const categories = [
@@ -135,7 +169,7 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
         <span className="font-bold text-slate-800">{breakdown.total.toFixed(0)} CHF</span>
       </div>
       
-      <div className="w-full h-6 bg-slate-100 rounded-full overflow-hidden flex relative group">
+      <div className="w-full h-6 bg-slate-100 rounded-full overflow-hidden flex relative">
         {categories.map(category => {
           const value = breakdown[category.key];
           const percentage = (value / breakdown.total) * 100;
@@ -143,20 +177,24 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
           if (value <= 0) return null;
           
           return (
-            <div
+            <Tooltip
               key={category.key}
-              className={`h-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
-              style={{ width: `${percentage}%` }}
-              title={`${category.label}: ${value.toFixed(0)} CHF (${percentage.toFixed(1)}%) - ${category.tooltip}`}
+              content={`${category.label}: ${value.toFixed(0)} CHF`}
+              position="top"
             >
-              <div className="relative w-full h-full">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                    {percentage.toFixed(0)}%
-                  </span>
+              <div
+                className={`h-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
+                style={{ width: `${percentage}%` }}
+              >
+                <div className="relative w-full h-full">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                      {value.toFixed(0)}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </Tooltip>
           );
         })}
       </div>
@@ -168,15 +206,17 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
           if (value <= 0) return null;
           
           return (
-            <div
+            <Tooltip
               key={category.key}
-              className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 rounded border border-slate-200"
-              title={`${category.label}: ${value.toFixed(0)} CHF - ${category.tooltip}`}
+              content={`${category.label}: ${value.toFixed(0)} CHF - ${category.tooltip}`}
+              position="top"
             >
-              <div className={`w-2 h-2 ${colors[category.key]} rounded`}></div>
-              <span className="text-slate-700 font-medium">{category.label}</span>
-              <span className="text-slate-500">{value.toFixed(0)}</span>
-            </div>
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 rounded border border-slate-200 cursor-help">
+                <div className={`w-2 h-2 ${colors[category.key]} rounded`}></div>
+                <span className="text-slate-700 font-medium">{category.label}</span>
+                <span className="text-slate-500">{value.toFixed(0)}</span>
+              </div>
+            </Tooltip>
           );
         })}
       </div>
@@ -1088,20 +1128,24 @@ const App = () => {
                           if (value <= 0) return null;
                           
                           return (
-                            <div
+                            <Tooltip
                               key={`${index}-${category.key}`}
-                              className={`h-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
-                              style={{ width: `${widthPercentage}%` }}
-                              title={`${category.label}: ${value.toFixed(0)} CHF (${percentage.toFixed(1)}%) - ${category.tooltip}`}
+                              content={`${category.label}: ${value.toFixed(0)} CHF`}
+                              position="top"
                             >
-                              <div className="relative w-full h-full">
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <span className="text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {percentage.toFixed(0)}%
-                                  </span>
+                              <div
+                                className={`h-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
+                                style={{ width: `${widthPercentage}%` }}
+                              >
+                                <div className="relative w-full h-full">
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className="text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                      {value.toFixed(0)}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
+                            </Tooltip>
                           );
                         })}
                       </div>
