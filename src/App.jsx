@@ -89,19 +89,18 @@ const formatDecimal = (value, decimals = 2) => {
   return num.toFixed(decimals); // Utilise le point comme séparateur décimal
 };
 
-// Composant Tooltip optimisé
-const Tooltip = ({ children, content, position = 'top' }) => {
+// Composant Tooltip optimisé pour les barres empilées
+const Tooltip = ({ children, content, position = 'top', width = '100%' }) => {
   const [isVisible, setIsVisible] = useState(false);
   
   return (
-    <div className="relative inline-block">
-      <div
-        onMouseEnter={() => setIsVisible(true)}
-        onMouseLeave={() => setIsVisible(false)}
-        className="cursor-help"
-      >
-        {children}
-      </div>
+    <div 
+      className="relative flex"
+      style={{ width }}
+      onMouseEnter={() => setIsVisible(true)}
+      onMouseLeave={() => setIsVisible(false)}
+    >
+      {children}
       
       {isVisible && (
         <div className={`
@@ -181,6 +180,7 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
               key={category.key}
               content={`${category.label}: ${value.toFixed(0)} CHF`}
               position="top"
+              width={`${percentage}%`}
             >
               <div
                 className={`h-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
