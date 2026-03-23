@@ -433,35 +433,6 @@ const App = () => {
   // --- MOTEUR DE CALCUL ---
   const calculateResults = () => {
     return cars.map(car => {
-      const capitalFinance = car.prixAchat - car.apport;
-
-      // 1. LEASING
-      const rLeasing = (car.tauxLeasing / 100) / 12;
-      let pmtLeasing = 0;
-      if (rLeasing > 0) {
-        const facteur = Math.pow(1 + rLeasing, -dureeMois);
-        const denom = (1 - facteur) / rLeasing;
-        pmtLeasing = (capitalFinance - (car.valeurResiduelle * facteur)) / (denom * (1 + rLeasing));
-      } else {
-        pmtLeasing = (capitalFinance - car.valeurResiduelle) / dureeMois;
-      }
-      const coutVehiculeLisseLeasing = (car.apport + (pmtLeasing * dureeMois)) / dureeMois;
-
-      // 2. CRÉDIT (utilise apportCredit spécifique)
-      const capitalFinanceCredit = car.prixAchat - car.apportCredit;
-      const rCredit = (tauxCreditGlobal / 100) / 12;
-      let pmtCredit = 0;
-      if (rCredit > 0) {
-        pmtCredit = capitalFinanceCredit * (rCredit / (1 - Math.pow(1 + rCredit, -dureeMois)));
-      } else {
-        pmtCredit = capitalFinanceCredit / dureeMois;
-      }
-      const coutVehiculeLisseCredit = (car.apportCredit + (pmtCredit * dureeMois) - car.valeurResiduelle) / dureeMois;
-
-      // 3. COMPTANT avec risque de dépréciation
-      const valeurResiduelleReelle = car.valeurResiduelle * (1 - car.risqueDepreciation / 100);
-      const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
-
       // A. Coût Énergie Mensuel (Mix PHEV)
       const distMensuelle = kmAnnuel / 12;
       const coutEnergieMensuel = (
@@ -470,7 +441,8 @@ const App = () => {
       );
 
       // B. Coût d'Opportunité (Manque à gagner sur placement)
-      const opportuniteApportMensuel = (car.apport * tauxPlacement / 100) / 12;
+      const opportuniteApportLeasingMensuel = (car.apport * tauxPlacement / 100) / 12;
+      const opportuniteApportCreditMensuel = (car.apportCredit * tauxPlacement / 100) / 12;
       const opportuniteComptantMensuel = (car.prixAchat * tauxPlacement / 100) / 12;
 
       // Frais Fixes
@@ -478,16 +450,46 @@ const App = () => {
       const coutVariableMensuel = coutEnergieMensuel + (car.entretien / 12);
       const fraisUsage = coutFixeMensuel + coutVariableMensuel;
 
-      // TCO avec coût d'opportunité
-      const tcoLeasing = coutVehiculeLisseLeasing + fraisUsage + opportuniteApportMensuel;
-      const tcoCredit = coutVehiculeLisseCredit + fraisUsage + opportuniteApportMensuel;
+      // Valeur résiduelle réelle avec risque de dépréciation
+      const valeurResiduelleReelle = car.valeurResiduelle * (1 - car.risqueDepreciation / 100);
+
+      // 1. LEASING
+      const capitalFinanceLeasing = car.prixAchat - car.apport;
+      const rLeasing = (car.tauxLeasing / 100) / 12;
+      let pmtLeasing = 0;
+      if (rLeasing > 0) {
+        const facteur = Math.pow(1 + rLeasing, -dureeMois);
+        const denom = (1 - facteur) / rLeasing;
+        pmtLeasing = (capitalFinanceLeasing - (car.valeurResiduelle * facteur)) / (denom * (1 + rLeasing));
+      } else {
+        pmtLeasing = (capitalFinanceLeasing - car.valeurResiduelle) / dureeMois;
+      }
+      const coutVehiculeLisseLeasing = (car.apport + (pmtLeasing * dureeMois)) / dureeMois;
+      const tcoLeasing = coutVehiculeLisseLeasing + fraisUsage + opportuniteApportLeasingMensuel;
+
+      // 2. CRÉDIT (avec apportCredit spécifique, risque de dépréciation et coût d'opportunité)
+      const capitalFinanceCredit = car.prixAchat - car.apportCredit;
+      const rCredit = (tauxCreditGlobal / 100) / 12;
+      let pmtCredit = 0;
+      if (rCredit > 0) {
+        pmtCredit = capitalFinanceCredit * (rCredit / (1 - Math.pow(1 + rCredit, -dureeMois)));
+      } else {
+        pmtCredit = capitalFinanceCredit / dureeMois;
+      }
+      // Amortissement net avec risque de dépréciation (comme pour le comptant)
+      const coutVehiculeLisseCredit = (car.apportCredit + (pmtCredit * dureeMois) - valeurResiduelleReelle) / dureeMois;
+      const tcoCredit = coutVehiculeLisseCredit + fraisUsage + opportuniteApportCreditMensuel;
+
+      // 3. COMPTANT avec risque de dépréciation
+      const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
 
       return {
         ...car,
         fraisUsage,
         coutEnergieMensuel,
-        opportuniteApportMensuel,
+        opportuniteApportLeasingMensuel,
+        opportuniteApportCreditMensuel,
         opportuniteComptantMensuel,
         valeurResiduelleReelle,
         leasing: {
