@@ -672,8 +672,8 @@ const App = () => {
       // TCO 5 Piliers : Flux Banque & Apport Lissé Brut
       const fraisFixesMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking + (car.entretien / 12);
       
-      // Mode LEASING : apportLisse = apport / durée, banque = pmt
-      const apportLisseLeasing = car.apport / dureeMois;
+      // Mode LEASING : apportLisse = max(0, apport / durée), banque = pmt (flux réel)
+      const apportLisseLeasing = Math.max(0, car.apport / dureeMois);
       const banqueLeasing = pmtLeasing;
       
       const breakdownLeasing = {
@@ -685,8 +685,8 @@ const App = () => {
         total: tcoLeasing
       };
 
-      // Mode CRÉDIT : apportLisse = apportCredit / durée, banque = pmt - (valeurRésiduelle / durée)
-      const apportLisseCredit = car.apportCredit / dureeMois;
+      // Mode CRÉDIT : apportLisse = max(0, apportCredit / durée), banque = pmt - (valeurRésiduelle / durée)
+      const apportLisseCredit = Math.max(0, car.apportCredit / dureeMois);
       const banqueCredit = pmtCredit - (valeurResiduelleReelle / dureeMois);
       
       const breakdownCredit = {
@@ -698,9 +698,9 @@ const App = () => {
         total: tcoCredit
       };
 
-      // Mode COMPTANT : apportLisse = dépréciation totale / durée, banque = 0
+      // Mode COMPTANT : apportLisse = max(0, dépréciation totale / durée), banque = 0
       const depreciationTotale = car.prixAchat - valeurResiduelleReelle;
-      const apportLisseComptant = depreciationTotale / dureeMois;
+      const apportLisseComptant = Math.max(0, depreciationTotale / dureeMois);
       
       const breakdownComptant = {
         apportLisse: apportLisseComptant,
@@ -1093,271 +1093,318 @@ const App = () => {
               </div>
             </div>
 
-            {/* GRILLE DES VÉHICULES (HORIZONTALE) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
+            {/* PILE DE CARTES VÉHICULES HORIZONTALES */}
+            <div className="flex flex-col gap-4 pb-6">
               {cars.map((car, index) => (
-                <div key={car.id} className="bg-white rounded-xl shadow-md border border-slate-200 flex flex-col relative group">
+                <div key={car.id} className="bg-white rounded-xl shadow-md border border-slate-200 flex flex-row relative group">
                   
-                  {/* Entête Véhicule avec % valeur résiduelle */}
-                  <div className="bg-slate-800 p-4 rounded-t-xl flex justify-between items-center">
-                    <div className="flex-1">
-                      <input 
-                        type="text" 
-                        value={car.name} 
-                        onChange={e => updateCar(index, 'name', e.target.value)}
-                        className="w-full bg-slate-700 text-white font-bold text-lg p-2 rounded border-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-400"
-                        placeholder={`Véhicule ${index + 1}`}
-                      />
+                  {/* Bloc A - Identité (20%) */}
+                  <div className="w-1/5 p-4 flex flex-col items-center justify-start bg-slate-50 border-r border-slate-200 rounded-l-xl">
+                    {/* Photo vignette */}
+                    {car.photoUrl && (
+                      <div className="mb-3 w-16 h-16 rounded-lg overflow-hidden border border-slate-300 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => openImageModal(car.photoUrl, car.name)}>
+                        <img 
+                          src={car.photoUrl} 
+                          alt={car.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400 text-xs">Image</div>';
+                          }}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Nom du véhicule */}
+                    <input 
+                      type="text" 
+                      value={car.name} 
+                      onChange={e => updateCar(index, 'name', e.target.value)}
+                      className="w-full text-center font-bold text-slate-800 text-lg p-2 rounded border-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-400"
+                      placeholder={`Véhicule ${index + 1}`}
+                    />
+                    
+                    {/* Prix TTC en gros */}
+                    <div className="mt-2 text-center">
+                      <span className="text-xs font-bold text-slate-500 uppercase">Prix TTC</span>
+                      <div className="font-black text-slate-900 text-xl">{car.prixAchat.toFixed(0)} CHF</div>
                     </div>
+                    
+                    {/* Type de motorisation (badge) */}
+                    <div className={`mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                      car.motorisation === 'ICE' ? 'bg-orange-100 text-orange-800' : 
+                      car.motorisation === 'BEV' ? 'bg-blue-100 text-blue-800' : 
+                      'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {car.motorisation === 'ICE' ? 'Thermique' : 
+                       car.motorisation === 'BEV' ? 'Électrique' : 
+                       'Hybride PHEV'}
+                    </div>
+                    
+                    {/* Bouton supprimer */}
                     <button 
                       onClick={() => removeCar(car.id)}
                       disabled={cars.length === 1}
-                      className="text-slate-400 hover:text-red-400 disabled:opacity-30 transition-colors ml-2"
+                      className="mt-4 text-slate-400 hover:text-red-400 disabled:opacity-30 transition-colors"
                       title="Supprimer ce véhicule"
                     >
                       <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
 
-                  {/* Contenu en 2 colonnes : Formulaire + Résultats */}
-                  <div className="flex flex-col lg:flex-row flex-grow">
-                    {/* Colonne GAUCHE : Formulaire */}
-                    <div className="lg:w-1/2 p-4 space-y-3 border-r border-slate-100">
-                      {/* Photo URL */}
+                  {/* Bloc B - Saisie (40%) */}
+                  <div className="w-2/5 p-4 bg-slate-50">
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Prix et valeur résiduelle */}
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase">URL de la photo</label>
-                        <input 
-                          type="text" 
-                          value={car.photoUrl} 
-                          onChange={e => updateCar(index, 'photoUrl', e.target.value)}
-                          className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
-                          placeholder="https://example.com/photo.jpg"
-                        />
-                        {car.photoUrl && (
-                          <div className="mt-2 relative">
-                            <img 
-                              src={car.photoUrl} 
-                              alt={car.name}
-                              className="w-full h-32 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity"
-                              onClick={() => openImageModal(car.photoUrl, car.name)}
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.parentElement.innerHTML = '<div class="text-xs text-slate-400 italic">Image non disponible</div>';
-                              }}
-                            />
-                            <button
-                              onClick={() => openImageModal(car.photoUrl, car.name)}
-                              className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full transition-colors"
-                              title="Agrandir l'image"
-                            >
-                              <Maximize2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Type de Motorisation */}
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase">Type de Motorisation</label>
-                        <select
-                          value={car.motorisation || 'PHEV'}
-                          onChange={e => updateCar(index, 'motorisation', e.target.value)}
-                          className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
-                        >
-                          <option value="ICE">ICE (Thermique)</option>
-                          <option value="PHEV">PHEV (Hybride Rechargeable)</option>
-                          <option value="BEV">BEV (100% Électrique)</option>
-                        </select>
-                        <div className="text-xs text-slate-500 mt-1">
-                          {car.motorisation === 'ICE' && 'Calcul uniquement sur la consommation essence'}
-                          {car.motorisation === 'BEV' && 'Calcul uniquement sur la consommation électrique'}
-                          {car.motorisation === 'PHEV' && 'Calcul mixte selon le % électrique'}
-                        </div>
-                      </div>
-
-                      {/* Commentaire */}
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase">Commentaire</label>
-                        <textarea 
-                          value={car.commentaire} 
-                          onChange={e => updateCar(index, 'commentaire', e.target.value)}
-                          className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white h-20"
-                          placeholder="Notes, observations, détails..."
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase">Prix TTC (CHF)</label>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Prix TTC</label>
                         <NumericInput
                           value={car.prixAchat}
                           onChange={val => updateCar(index, 'prixAchat', val)}
-                          className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50"
-                          placeholder="ex: 52037.50"
-                        />
-                      </div>
-                      
-                      <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg space-y-2">
-                        <span className="text-xs font-bold text-blue-800 uppercase">Conditions leasing</span>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-xs text-blue-700">Apport</label>
-                            <NumericInput
-                              value={car.apport}
-                              onChange={val => updateCar(index, 'apport', val)}
-                              className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white"
-                              placeholder="0.00"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-blue-700">Taux (%)</label>
-                            <NumericInput
-                              value={car.tauxLeasing}
-                              onChange={val => updateCar(index, 'tauxLeasing', val)}
-                              className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold"
-                              placeholder="0.00"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-lg space-y-2">
-                        <span className="text-xs font-bold text-emerald-800 uppercase">Conditions crédit</span>
-                        <div>
-                          <label className="block text-xs text-emerald-700">Apport crédit (différent du leasing)</label>
-                          <NumericInput
-                            value={car.apportCredit} 
-                            onChange={val => updateCar(index, 'apportCredit', val)}
-                            className="w-full p-1.5 border border-emerald-200 rounded text-sm bg-white" 
-                            placeholder="0.00"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <label className="block text-xs font-semibold text-slate-500 uppercase">Valeur Résiduelle (CHF)</label>
-                          {car.prixAchat > 0 && (
-                            <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
-                              {((car.valeurResiduelle / car.prixAchat) * 100).toFixed(1)}%
-                            </span>
-                          )}
-                        </div>
-                        <NumericInput
-                          value={car.valeurResiduelle} 
-                          onChange={val => updateCar(index, 'valeurResiduelle', val)}
-                          className="w-full p-2 border border-slate-300 rounded-lg text-sm" 
+                          className="w-full p-1.5 border border-slate-300 rounded text-sm bg-white font-bold text-slate-900"
                           placeholder="0.00"
                         />
                       </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Résiduelle</label>
+                        <NumericInput
+                          value={car.valeurResiduelle} 
+                          onChange={val => updateCar(index, 'valeurResiduelle', val)}
+                          className="w-full p-1.5 border border-slate-300 rounded text-sm bg-white" 
+                          placeholder="0.00"
+                        />
+                      </div>
+                      
+                      {/* Apports */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Apport Leasing</label>
+                        <NumericInput
+                          value={car.apport}
+                          onChange={val => updateCar(index, 'apport', val)}
+                          className="w-full p-1.5 border border-slate-300 rounded text-sm bg-white"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Apport Crédit</label>
+                        <NumericInput
+                          value={car.apportCredit} 
+                          onChange={val => updateCar(index, 'apportCredit', val)}
+                          className="w-full p-1.5 border border-slate-300 rounded text-sm bg-white" 
+                          placeholder="0.00"
+                        />
+                      </div>
+                      
+                      {/* Taux et risque */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Taux Leasing (%)</label>
+                        <NumericInput
+                          value={car.tauxLeasing}
+                          onChange={val => updateCar(index, 'tauxLeasing', val)}
+                          className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="relative">
+                        <label className="block text-[10px] font-bold text-amber-600 uppercase">Risque (%)</label>
+                        <NumericInput
+                          value={car.risqueDepreciation} 
+                          onChange={val => updateCar(index, 'risqueDepreciation', val)}
+                          className="w-full p-1.5 border border-amber-300 rounded text-sm bg-amber-50" 
+                          placeholder="0-30"
+                        />
+                      </div>
+                      
+                      {/* Consommations */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Conso Élec (kWh)</label>
+                        <NumericInput
+                          value={car.consoElec} 
+                          onChange={val => updateCar(index, 'consoElec', val)}
+                          className="w-full p-1.5 border border-slate-300 rounded text-sm bg-white" 
+                          placeholder="0.0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Conso Essence (L)</label>
+                        <NumericInput
+                          value={car.consoEssence} 
+                          onChange={val => updateCar(index, 'consoEssence', val)}
+                          className="w-full p-1.5 border border-slate-300 rounded text-sm bg-white" 
+                          placeholder="0.0"
+                        />
+                      </div>
+                      
+                      {/* Frais fixes */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Assurance</label>
+                        <NumericInput
+                          value={car.assurance} 
+                          onChange={val => updateCar(index, 'assurance', val)}
+                          className="w-full p-1.5 border border-slate-300 rounded text-sm bg-white" 
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Impôt</label>
+                        <NumericInput
+                          value={car.impotCantonal} 
+                          onChange={val => updateCar(index, 'impotCantonal', val)}
+                          className="w-full p-1.5 border border-slate-300 rounded text-sm bg-white" 
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Coût Usage seul */}
+                    <div className="mt-4 pt-3 border-t border-slate-300">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-slate-600">Usage seul</span>
+                        <span className="font-bold text-slate-800 text-lg">{results[index].fraisUsage.toFixed(0)} CHF</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-1">
+                        (Énergie + Frais fixes) - Coût indépendant du financement
+                      </div>
+                    </div>
+                  </div>
 
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Assurance</label>
-                          <NumericInput
-                            value={car.assurance} 
-                            onChange={val => updateCar(index, 'assurance', val)}
-                            className="w-full p-1.5 border border-slate-200 rounded text-sm" 
-                            placeholder="0.00"
-                          />
+                  {/* Bloc C - Comparaison (40%) */}
+                  <div className="w-2/5 p-4">
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-bold text-blue-700">Leasing</span>
+                          <span className="font-bold text-slate-800">{results[index].leasing.tco.toFixed(0)} CHF</span>
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Impôt</label>
-                          <NumericInput
-                            value={car.impotCantonal} 
-                            onChange={val => updateCar(index, 'impotCantonal', val)}
-                            className="w-full p-1.5 border border-slate-200 rounded text-sm" 
-                            placeholder="0.00"
-                          />
+                        <div className="w-full h-4 bg-slate-100 rounded-full overflow-visible flex relative z-50">
+                          {Object.keys(results[index].leasing.breakdown).filter(key => key !== 'total').map((key, catIndex) => {
+                            const value = results[index].leasing.breakdown[key];
+                            const percentage = (value / results[index].leasing.breakdown.total) * 100;
+                            
+                            if (value <= 0) return null;
+                            
+                            let bgColor = '';
+                            switch(key) {
+                              case 'apportLisse': bgColor = 'bg-blue-950'; break;
+                              case 'banque': bgColor = 'bg-blue-700'; break;
+                              case 'energie': bgColor = 'bg-blue-500'; break;
+                              case 'fraisFixes': bgColor = 'bg-blue-300'; break;
+                              case 'opportunite': bgColor = 'bg-blue-200'; break;
+                              default: bgColor = 'bg-blue-400';
+                            }
+                            
+                            return (
+                              <Tooltip
+                                key={`leasing-${index}-${key}`}
+                                content={`${key === 'apportLisse' ? 'Apport Lissé' : 
+                                          key === 'banque' ? 'Banque' : 
+                                          key === 'energie' ? 'Énergie' : 
+                                          key === 'fraisFixes' ? 'Frais Fixes' : 'Opportunité'}: ${value.toFixed(0)} CHF`}
+                                position="top"
+                                width={`${percentage}%`}
+                              >
+                                <div className={`h-full w-full ${bgColor}`} />
+                              </Tooltip>
+                            );
+                          })}
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Entretien</label>
-                          <NumericInput
-                            value={car.entretien} 
-                            onChange={val => updateCar(index, 'entretien', val)}
-                            className="w-full p-1.5 border border-slate-200 rounded text-sm" 
-                            placeholder="0.00"
-                          />
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-bold text-emerald-700">Crédit</span>
+                          <span className="font-bold text-slate-800">{results[index].credit.tco.toFixed(0)} CHF</span>
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso Élec (kWh/100km)</label>
-                          <NumericInput
-                            value={car.consoElec} 
-                            onChange={val => updateCar(index, 'consoElec', val)}
-                            className="w-full p-1.5 border border-slate-200 rounded text-sm" 
-                            placeholder="0.0"
-                          />
+                        <div className="w-full h-4 bg-slate-100 rounded-full overflow-visible flex relative z-50">
+                          {Object.keys(results[index].credit.breakdown).filter(key => key !== 'total').map((key, catIndex) => {
+                            const value = results[index].credit.breakdown[key];
+                            const percentage = (value / results[index].credit.breakdown.total) * 100;
+                            
+                            if (value <= 0) return null;
+                            
+                            let bgColor = '';
+                            switch(key) {
+                              case 'apportLisse': bgColor = 'bg-emerald-950'; break;
+                              case 'banque': bgColor = 'bg-emerald-700'; break;
+                              case 'energie': bgColor = 'bg-emerald-500'; break;
+                              case 'fraisFixes': bgColor = 'bg-emerald-300'; break;
+                              case 'opportunite': bgColor = 'bg-emerald-200'; break;
+                              default: bgColor = 'bg-emerald-400';
+                            }
+                            
+                            return (
+                              <Tooltip
+                                key={`credit-${index}-${key}`}
+                                content={`${key === 'apportLisse' ? 'Apport Lissé' : 
+                                          key === 'banque' ? 'Banque' : 
+                                          key === 'energie' ? 'Énergie' : 
+                                          key === 'fraisFixes' ? 'Frais Fixes' : 'Opportunité'}: ${value.toFixed(0)} CHF`}
+                                position="top"
+                                width={`${percentage}%`}
+                              >
+                                <div className={`h-full w-full ${bgColor}`} />
+                              </Tooltip>
+                            );
+                          })}
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso Essence (L/100km)</label>
-                          <NumericInput
-                            value={car.consoEssence} 
-                            onChange={val => updateCar(index, 'consoEssence', val)}
-                            className="w-full p-1.5 border border-slate-200 rounded text-sm" 
-                            placeholder="0.0"
-                          />
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-bold text-purple-700">Comptant</span>
+                          <span className="font-bold text-slate-800">{results[index].comptant.tco.toFixed(0)} CHF</span>
                         </div>
-                        <div className="relative">
-                          <label className="block text-[10px] font-bold text-amber-600 uppercase flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" />
-                            Risque Marché (%)
-                          </label>
-                          <NumericInput
-                            value={car.risqueDepreciation} 
-                            onChange={val => updateCar(index, 'risqueDepreciation', val)}
-                            className="w-full p-1.5 border border-amber-300 rounded text-sm bg-amber-50" 
-                            placeholder="0-30"
-                          />
-                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center" title="Impact sur la valeur de revente">
-                            !
-                          </div>
+                        <div className="w-full h-4 bg-slate-100 rounded-full overflow-visible flex relative z-50">
+                          {Object.keys(results[index].comptant.breakdown).filter(key => key !== 'total').map((key, catIndex) => {
+                            const value = results[index].comptant.breakdown[key];
+                            const percentage = (value / results[index].comptant.breakdown.total) * 100;
+                            
+                            if (value <= 0) return null;
+                            
+                            let bgColor = '';
+                            switch(key) {
+                              case 'apportLisse': bgColor = 'bg-purple-950'; break;
+                              case 'banque': bgColor = 'bg-purple-700'; break;
+                              case 'energie': bgColor = 'bg-purple-500'; break;
+                              case 'fraisFixes': bgColor = 'bg-purple-300'; break;
+                              case 'opportunite': bgColor = 'bg-purple-200'; break;
+                              default: bgColor = 'bg-purple-400';
+                            }
+                            
+                            return (
+                              <Tooltip
+                                key={`comptant-${index}-${key}`}
+                                content={`${key === 'apportLisse' ? 'Apport Lissé' : 
+                                          key === 'banque' ? 'Banque' : 
+                                          key === 'energie' ? 'Énergie' : 
+                                          key === 'fraisFixes' ? 'Frais Fixes' : 'Opportunité'}: ${value.toFixed(0)} CHF`}
+                                position="top"
+                                width={`${percentage}%`}
+                              >
+                                <div className={`h-full w-full ${bgColor}`} />
+                              </Tooltip>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
-
-                    {/* Colonne DROITE : Résultats */}
-                    <div className="lg:w-1/2 p-4 bg-slate-50 flex flex-col gap-3 rounded-b-xl lg:rounded-br-xl lg:rounded-bl-none">
-                      
-                      <div className="text-center bg-white py-2 px-3 rounded shadow-sm border border-slate-200">
-                        <span className="text-xs text-slate-500 uppercase font-bold">Usage Mensuel</span>
-                        <div className="font-bold text-slate-700 text-xl mt-1">{results[index].fraisUsage.toFixed(0)} <span className="text-sm font-normal">CHF</span></div>
-                      </div>
-
-                      {/* Graphiques TCO Empilés */}
-                      <div className="space-y-4">
-                        <div className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
-                          <StackedBarChart 
-                            breakdown={results[index].leasing.breakdown}
-                            type="leasing"
-                            vehicleName={car.name}
-                            motorisation={car.motorisation}
-                          />
-                        </div>
-
-                        <div className="bg-white border border-emerald-200 rounded-lg p-3 shadow-sm">
-                          <StackedBarChart 
-                            breakdown={results[index].credit.breakdown}
-                            type="credit"
-                            vehicleName={car.name}
-                            motorisation={car.motorisation}
-                          />
-                        </div>
-
-                        <div className="bg-white border border-purple-200 rounded-lg p-3 shadow-sm">
-                          <StackedBarChart 
-                            breakdown={results[index].comptant.breakdown}
-                            type="comptant"
-                            vehicleName={car.name}
-                            motorisation={car.motorisation}
-                          />
-                        </div>
-                      </div>
+                    
+                    {/* Commentaire rapide */}
+                    <div className="mt-4">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase">Commentaire</label>
+                      <textarea 
+                        value={car.commentaire} 
+                        onChange={e => updateCar(index, 'commentaire', e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white h-16"
+                        placeholder="Notes..."
+                      />
                     </div>
                   </div>
                 </div>
               ))}
 
               {/* BOUTON AJOUTER */}
-              <div className="col-span-1 md:col-span-2 lg:col-span-3 flex justify-center mt-4">
+              <div className="flex justify-center mt-4">
                 <button 
                   onClick={addCar}
                   className="w-full max-w-md rounded-xl border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 flex flex-col items-center justify-center text-slate-500 hover:text-indigo-600 transition-all group p-8"
@@ -1373,10 +1420,10 @@ const App = () => {
           </div>
 
           {/* Colonne DROITE (Résultat) - 4/12 - Panneau de classement persistant */}
-          <div className="lg:col-span-4 sticky top-4 space-y-4">
+          <div className="lg:col-span-4 sticky top-6 space-y-4">
             
             {/* Bloc Comparaison des Coûts Mensuels */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6 shadow-slate-200/50">
               <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-slate-800">
                 <BarChart3 className="w-6 h-6 text-indigo-500" /> 
                 Comparaison des Coûts Mensuels (Synthèse)
