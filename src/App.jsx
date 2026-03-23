@@ -813,371 +813,744 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 font-sans text-slate-800">
-      <div className="max-w-7xl mx-auto space-y-6">
-        
-        <header className="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-              <Car className="w-8 h-8 text-indigo-600" />
-              Comparateur Multi-Véhicules
-            </h1>
-            <p className="text-slate-500 mt-2">Comparez les offres et trouvez le véhicule le plus adapté à votre budget.</p>
+      <div className="max-w-7xl mx-auto">
+        {/* Layout Dashboard à deux colonnes */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          {/* Colonne GAUCHE (Édition) - 8/12 */}
+          <div className="lg:col-span-8 space-y-6">
             
-            {/* Section Code Partagé */}
-            <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Key className="w-4 h-4 text-indigo-500" />
-                <span className="text-sm font-medium text-slate-700">Code de partage :</span>
+            <header className="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                  <Car className="w-8 h-8 text-indigo-600" />
+                  Comparateur Multi-Véhicules
+                </h1>
+                <p className="text-slate-500 mt-2">Comparez les offres et trouvez le véhicule le plus adapté à votre budget.</p>
+                
+                {/* Section Code Partagé */}
+                <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Key className="w-4 h-4 text-indigo-500" />
+                    <span className="text-sm font-medium text-slate-700">Code de partage :</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={sharedCode}
+                        onChange={(e) => updateSharedCode(e.target.value)}
+                        className={`px-3 py-1.5 border ${isCodeValid ? 'border-slate-300' : 'border-red-300'} rounded-lg font-mono font-bold text-indigo-700 bg-white text-center w-32`}
+                        maxLength={8}
+                        placeholder="COMP123"
+                      />
+                      {!isCodeValid && (
+                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs">!</span>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={copyToClipboard}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1.5 text-sm font-medium transition-colors"
+                      title="Copier le code"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Copier
+                    </button>
+                    {showLoadButton && (
+                      <button
+                        onClick={loadDataForCurrentCode}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 text-sm font-medium transition-colors animate-pulse shadow-lg"
+                        title="Charger les données avec ce code"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Charger
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5 text-sm">
+                    <div className="flex items-center gap-1.5 text-slate-500">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>Même code sur tous vos appareils</span>
+                    </div>
+                    {!isCodeValid && (
+                      <span className="text-red-500 text-xs font-medium bg-red-50 px-2 py-1 rounded">
+                        Erreur de connexion
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2 text-xs text-slate-400">
+                  <span className="font-medium">Comment ça marche :</span> Entrez le même code sur votre ordinateur et votre smartphone. Toutes les modifications seront synchronisées automatiquement. <strong>Cliquez sur "Charger" après avoir changé le code.</strong>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={sharedCode}
-                    onChange={(e) => updateSharedCode(e.target.value)}
-                    className={`px-3 py-1.5 border ${isCodeValid ? 'border-slate-300' : 'border-red-300'} rounded-lg font-mono font-bold text-indigo-700 bg-white text-center w-32`}
-                    maxLength={8}
-                    placeholder="COMP123"
-                  />
-                  {!isCodeValid && (
-                    <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs">!</span>
+              
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-2">
+                  {apiHealth ? (
+                    <div className="flex items-center gap-1 text-emerald-600 text-sm">
+                      <Wifi className="w-4 h-4" />
+                      <span>API SQLite connectée</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-amber-600 text-sm">
+                      <WifiOff className="w-4 h-4" />
+                      <span>Mode hors ligne</span>
+                    </div>
+                  )}
+                  {queueSize > 0 && (
+                    <div className="flex items-center gap-1 text-blue-600 text-sm bg-blue-50 px-2 py-1 rounded">
+                      <Database className="w-3 h-3" />
+                      <span>{queueSize} en attente</span>
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={copyToClipboard}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1.5 text-sm font-medium transition-colors"
-                  title="Copier le code"
+                
+                <button 
+                  onClick={saveDataToServer}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50"
                 >
-                  <Copy className="w-3.5 h-3.5" />
-                  Copier
+                  {isSaving ? <Cloud className="w-5 h-5 animate-pulse" /> : <Save className="w-5 h-5" />}
+                  {isSaving ? "Sauvegarde..." : "Sauvegarder sur SQLite"}
                 </button>
-                {showLoadButton && (
-                  <button
-                    onClick={loadDataForCurrentCode}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 text-sm font-medium transition-colors animate-pulse shadow-lg"
-                    title="Charger les données avec ce code"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Charger
-                  </button>
+                
+                {lastSaved && !saveError && (
+                  <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5 font-medium">
+                    <CheckCircle className="w-4 h-4 text-emerald-500" /> 
+                    Dernière sauvegarde : {lastSaved.toLocaleTimeString('fr-CH', {hour: '2-digit', minute:'2-digit'})}
+                  </p>
+                )}
+                {saveError && (
+                  <p className="text-sm text-red-500 mt-1 flex items-center gap-1.5 font-medium">
+                    <AlertCircle className="w-4 h-4" /> 
+                    Erreur de connexion API
+                  </p>
                 )}
               </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5 text-sm">
-                <div className="flex items-center gap-1.5 text-slate-500">
-                  <Users className="w-3.5 h-3.5" />
-                  <span>Même code sur tous vos appareils</span>
+            </header>
+
+            {/* GUIDE PÉDAGOGIQUE */}
+            <div className="bg-indigo-50 rounded-xl shadow-sm border border-indigo-100 p-4">
+              <button
+                onClick={() => setIsGuideOpen(!isGuideOpen)}
+                className="w-full flex items-center justify-between text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <Info className="w-5 h-5 text-indigo-600" />
+                  <h2 className="text-lg font-semibold text-indigo-800">
+                    Comprendre les modes de financement & les indicateurs économiques
+                  </h2>
                 </div>
-                {!isCodeValid && (
-                  <span className="text-red-500 text-xs font-medium bg-red-50 px-2 py-1 rounded">
-                    Erreur de connexion
-                  </span>
+                {isGuideOpen ? (
+                  <ChevronUp className="w-5 h-5 text-indigo-500" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-indigo-500" />
                 )}
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-slate-400">
-              <span className="font-medium">Comment ça marche :</span> Entrez le même code sur votre ordinateur et votre smartphone. Toutes les modifications seront synchronisées automatiquement. <strong>Cliquez sur "Charger" après avoir changé le code.</strong>
-            </div>
-          </div>
-          
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-2">
-              {apiHealth ? (
-                <div className="flex items-center gap-1 text-emerald-600 text-sm">
-                  <Wifi className="w-4 h-4" />
-                  <span>API SQLite connectée</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 text-amber-600 text-sm">
-                  <WifiOff className="w-4 h-4" />
-                  <span>Mode hors ligne</span>
-                </div>
-              )}
-              {queueSize > 0 && (
-                <div className="flex items-center gap-1 text-blue-600 text-sm bg-blue-50 px-2 py-1 rounded">
-                  <Database className="w-3 h-3" />
-                  <span>{queueSize} en attente</span>
-                </div>
-              )}
-            </div>
-            
-            <button 
-              onClick={saveDataToServer}
-              disabled={isSaving}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50"
-            >
-              {isSaving ? <Cloud className="w-5 h-5 animate-pulse" /> : <Save className="w-5 h-5" />}
-              {isSaving ? "Sauvegarde..." : "Sauvegarder sur SQLite"}
-            </button>
-            
-            {lastSaved && !saveError && (
-              <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5 font-medium">
-                <CheckCircle className="w-4 h-4 text-emerald-500" /> 
-                Dernière sauvegarde : {lastSaved.toLocaleTimeString('fr-CH', {hour: '2-digit', minute:'2-digit'})}
-              </p>
-            )}
-            {saveError && (
-              <p className="text-sm text-red-500 mt-1 flex items-center gap-1.5 font-medium">
-                <AlertCircle className="w-4 h-4" /> 
-                Erreur de connexion API
-              </p>
-            )}
-          </div>
-        </header>
+              </button>
+              
+              {isGuideOpen && (
+                <div className="mt-4 pt-4 border-t border-indigo-100">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Bloc Financements */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="w-4 h-4 text-blue-600" />
+                        <h3 className="font-bold text-slate-800">Les Financements</h3>
+                      </div>
+                      <div className="space-y-2 text-sm text-slate-700">
+                        <p><strong>Leasing (Crédit-bail)</strong> : Vous payez pour l'utilisation, pas la possession. Idéal si vous changez de voiture tous les 3-4 ans. À Lausanne, c'est une "assurance" contre la dépréciation : si les règles de circulation changent en 2030, c'est la banque qui assume la perte.</p>
+                        <p><strong>Crédit Privé</strong> : Vous devenez propriétaire immédiatement. <span className="text-emerald-700 font-medium">Avantage vaudois</span> : les intérêts sont déductibles de votre revenu imposable (réduction de 20-30% selon votre tranche).</p>
+                        <p><strong>Achat Comptant</strong> : Attention au coût d'opportunité ! Cet argent ne vous rapporte plus rien sur vos placements (ETF, 3ème pilier). Vous portez 100% du risque de revente.</p>
+                      </div>
+                    </div>
 
-        {/* GUIDE PÉDAGOGIQUE */}
-        <div className="bg-indigo-50 rounded-xl shadow-sm border border-indigo-100 p-4">
-          <button
-            onClick={() => setIsGuideOpen(!isGuideOpen)}
-            className="w-full flex items-center justify-between text-left"
-          >
-            <div className="flex items-center gap-3">
-              <Info className="w-5 h-5 text-indigo-600" />
-              <h2 className="text-lg font-semibold text-indigo-800">
-                Comprendre les modes de financement & les indicateurs économiques
-              </h2>
-            </div>
-            {isGuideOpen ? (
-              <ChevronUp className="w-5 h-5 text-indigo-500" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-indigo-500" />
-            )}
-          </button>
-          
-          {isGuideOpen && (
-            <div className="mt-4 pt-4 border-t border-indigo-100">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Bloc Financements */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-blue-600" />
-                    <h3 className="font-bold text-slate-800">Les Financements</h3>
-                  </div>
-                  <div className="space-y-2 text-sm text-slate-700">
-                    <p><strong>Leasing (Crédit-bail)</strong> : Vous payez pour l'utilisation, pas la possession. Idéal si vous changez de voiture tous les 3-4 ans. À Lausanne, c'est une "assurance" contre la dépréciation : si les règles de circulation changent en 2030, c'est la banque qui assume la perte.</p>
-                    <p><strong>Crédit Privé</strong> : Vous devenez propriétaire immédiatement. <span className="text-emerald-700 font-medium">Avantage vaudois</span> : les intérêts sont déductibles de votre revenu imposable (réduction de 20-30% selon votre tranche).</p>
-                    <p><strong>Achat Comptant</strong> : Attention au coût d'opportunité ! Cet argent ne vous rapporte plus rien sur vos placements (ETF, 3ème pilier). Vous portez 100% du risque de revente.</p>
-                  </div>
-                </div>
+                    {/* Bloc Indicateurs */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-amber-600" />
+                        <h3 className="font-bold text-slate-800">Les Indicateurs Clés</h3>
+                      </div>
+                      <div className="space-y-2 text-sm text-slate-700">
+                        <p><strong>Taux de Placement (3%)</strong> : Simule le gain manqué sur votre épargne (coût d'opportunité). Si votre épargne rapporte 3% et votre leasing coûte 1,9%, il est mathématiquement plus intelligent de faire un leasing et de laisser votre argent travailler.</p>
+                        <p><strong>Inflation (2%)</strong> : Elle "mange" la valeur de l'argent. Si vous avez une dette fixe (Leasing/Crédit), l'inflation joue pour vous : vous remboursez avec des francs qui ont moins de valeur qu'au premier jour.</p>
+                      </div>
+                    </div>
 
-                {/* Bloc Indicateurs */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-amber-600" />
-                    <h3 className="font-bold text-slate-800">Les Indicateurs Clés</h3>
-                  </div>
-                  <div className="space-y-2 text-sm text-slate-700">
-                    <p><strong>Taux de Placement (3%)</strong> : Simule le gain manqué sur votre épargne (coût d'opportunité). Si votre épargne rapporte 3% et votre leasing coûte 1,9%, il est mathématiquement plus intelligent de faire un leasing et de laisser votre argent travailler.</p>
-                    <p><strong>Inflation (2%)</strong> : Elle "mange" la valeur de l'argent. Si vous avez une dette fixe (Leasing/Crédit), l'inflation joue pour vous : vous remboursez avec des francs qui ont moins de valeur qu'au premier jour.</p>
-                  </div>
-                </div>
-
-                {/* Bloc Risque & Synthèse */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-600" />
-                    <h3 className="font-bold text-slate-800">Risque Marché & Synthèse</h3>
-                  </div>
-                  <div className="space-y-2 text-sm text-slate-700">
-                    <p><strong>Risque de Dépréciation (0-30%)</strong> : Simule l'impact des futures restrictions de circulation à Lausanne (2030) sur la valeur de revente. Ce risque s'applique au <strong>Crédit</strong> et au <strong>Comptant</strong> (vous êtes propriétaire), mais pas au <strong>Leasing</strong> (la banque assume le risque).</p>
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
-                      <p className="text-amber-800 font-medium text-sm">
-                        💡 <strong>Le mode le plus intéressant n'est pas forcément celui sans intérêts.</strong> Si votre taux de placement est supérieur au taux de financement, préserver votre capital est souvent la stratégie la plus rentable.
-                      </p>
+                    {/* Bloc Risque & Synthèse */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-600" />
+                        <h3 className="font-bold text-slate-800">Risque Marché & Synthèse</h3>
+                      </div>
+                      <div className="space-y-2 text-sm text-slate-700">
+                        <p><strong>Risque de Dépréciation (0-30%)</strong> : Simule l'impact des futures restrictions de circulation à Lausanne (2030) sur la valeur de revente. Ce risque s'applique au <strong>Crédit</strong> et au <strong>Comptant</strong> (vous êtes propriétaire), mais pas au <strong>Leasing</strong> (la banque assume le risque).</p>
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
+                          <p className="text-amber-800 font-medium text-sm">
+                            💡 <strong>Le mode le plus intéressant n'est pas forcément celui sans intérêts.</strong> Si votre taux de placement est supérieur au taux de financement, préserver votre capital est souvent la stratégie la plus rentable.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* SYNTHÈSE GRAPHIQUE UNIFIÉE (Barres Empilées) */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-slate-800">
-            <BarChart3 className="w-6 h-6 text-indigo-500" /> 
-            Comparaison des Coûts Mensuels (Tous Modes) - Décomposition Détailée
-          </h2>
-          
-          {/* Graphique unifié avec barres empilées */}
-          <div className="space-y-6">
-            {/* Légende des modes */}
-            <div className="flex flex-wrap gap-4 justify-center mb-2">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                <span className="text-sm font-medium text-slate-700">Leasing</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-emerald-500 rounded"></div>
-                <span className="text-sm font-medium text-slate-700">Crédit ({tauxCreditGlobal}%)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-purple-500 rounded"></div>
-                <span className="text-sm font-medium text-slate-700">Comptant</span>
-              </div>
+              )}
             </div>
 
-            {/* Légende des segments (5 catégories avec "Banque") */}
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <h4 className="text-xs font-bold text-slate-600 mb-2">Légende des segments (du plus foncé au plus clair) :</h4>
-              <div className="flex flex-wrap gap-3">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 bg-slate-900 rounded"></div>
-                  <span className="text-xs text-slate-700">Apport Lissé</span>
+            {/* PARAMÈTRES GLOBAUX */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-indigo-800">
+                <Wallet className="w-5 h-5" /> Paramètres d'Usage & Économiques
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-10 gap-4">
+                <div className="col-span-1">
+                  <label className="block text-xs font-medium text-slate-500">Durée (mois)</label>
+                  <NumericInput
+                    value={dureeMois} 
+                    onChange={setDureeMois}
+                    className="w-full p-2 border rounded-md" 
+                  />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 bg-slate-700 rounded"></div>
-                  <span className="text-xs text-slate-700">Banque</span>
+                <div className="col-span-1">
+                  <label className="block text-xs font-medium text-slate-500">Km annuel</label>
+                  <NumericInput
+                    value={kmAnnuel} 
+                    onChange={setKmAnnuel}
+                    className="w-full p-2 border rounded-md" 
+                  />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 bg-slate-600 rounded"></div>
-                  <span className="text-xs text-slate-700">Énergie</span>
+                <div className="col-span-1">
+                  <label className="block text-xs font-medium text-slate-500">Parking /mois</label>
+                  <NumericInput
+                    value={parking} 
+                    onChange={setParking}
+                    className="w-full p-2 border rounded-md" 
+                  />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 bg-slate-400 rounded"></div>
-                  <span className="text-xs text-slate-700">Frais Fixes</span>
+                <div className="col-span-1">
+                  <label className="block text-xs font-medium text-slate-500">Vignette /an</label>
+                  <NumericInput
+                    value={vignette} 
+                    onChange={setVignette}
+                    className="w-full p-2 border rounded-md" 
+                  />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 bg-slate-200 rounded"></div>
-                  <span className="text-xs text-slate-700">Opportunité</span>
+                <div className="col-span-1 border-l border-slate-200 pl-4">
+                  <label className="block text-xs font-bold text-emerald-600">Crédit (%)</label>
+                  <NumericInput
+                    value={tauxCreditGlobal} 
+                    onChange={setTauxCreditGlobal}
+                    className="w-full p-2 border border-emerald-300 rounded-md bg-emerald-50 text-emerald-900 font-bold" 
+                  />
+                </div>
+                <div className="col-span-1">
+                  <label className="block text-xs font-medium text-amber-600">Inflation (%)</label>
+                  <NumericInput
+                    value={inflationAnnuelle} 
+                    onChange={setInflationAnnuelle}
+                    className="w-full p-2 border border-amber-300 rounded-md bg-amber-50 text-amber-900" 
+                  />
+                </div>
+                <div className="col-span-1">
+                  <label className="block text-xs font-medium text-cyan-600">Placement (%)</label>
+                  <NumericInput
+                    value={tauxPlacement} 
+                    onChange={setTauxPlacement}
+                    className="w-full p-2 border border-cyan-300 rounded-md bg-cyan-50 text-cyan-900" 
+                  />
+                </div>
+                <div className="col-span-1 border-l border-slate-200 pl-4">
+                  <label className="block text-xs font-medium text-orange-600">Essence (CHF/L)</label>
+                  <NumericInput
+                    value={prixEssence} 
+                    onChange={setPrixEssence}
+                    className="w-full p-2 border border-orange-300 rounded-md bg-orange-50 text-orange-900" 
+                  />
+                </div>
+                <div className="col-span-1">
+                  <label className="block text-xs font-medium text-blue-600">Électricité (CHF/kWh)</label>
+                  <NumericInput
+                    value={prixElec} 
+                    onChange={setPrixElec}
+                    className="w-full p-2 border border-blue-300 rounded-md bg-blue-50 text-blue-900" 
+                  />
+                </div>
+                <div className="col-span-1">
+                  <label className="block text-xs font-medium text-purple-600">% Électrique</label>
+                  <NumericInput
+                    value={ratioElec} 
+                    onChange={setRatioElec}
+                    className="w-full p-2 border border-purple-300 rounded-md bg-purple-50 text-purple-900" 
+                  />
+                  <div className="text-xs text-purple-500 mt-1">
+                    S'applique uniquement aux véhicules PHEV
+                  </div>
                 </div>
               </div>
+              <div className="mt-4 text-xs text-slate-500">
+                <span className="font-medium">Coût d'opportunité :</span> Le taux de placement représente le rendement annuel que vous pourriez obtenir en investissant votre argent plutôt que de l'utiliser pour acheter un véhicule. Ce coût est inclus dans le TCO.
+              </div>
             </div>
-            
-            {/* Graphique principal avec barres empilées */}
-            <div className="space-y-4">
-              {(() => {
-                // Créer un tableau plat avec toutes les données
-                const allData = [];
-                results.forEach(r => {
-                  allData.push(
-                    { 
-                      type: 'leasing', 
-                      vehicle: r.name, 
-                      breakdown: r.leasing.breakdown,
-                      color: 'blue',
-                      total: r.leasing.tco
-                    },
-                    { 
-                      type: 'credit', 
-                      vehicle: r.name, 
-                      breakdown: r.credit.breakdown,
-                      color: 'emerald',
-                      total: r.credit.tco
-                    },
-                    { 
-                      type: 'comptant', 
-                      vehicle: r.name, 
-                      breakdown: r.comptant.breakdown,
-                      color: 'purple',
-                      total: r.comptant.tco
-                    }
-                  );
-                });
-                
-                // Trier par valeur croissante
-                allData.sort((a, b) => a.total - b.total);
-                
-                // Trouver la valeur max pour l'échelle avec marge de 5%
-                const maxValue = Math.max(...allData.map(d => d.breakdown.total), 1) * 1.05;
-                
-                // Définir les catégories et couleurs (5 catégories avec "Banque")
-                const categories = [
-                  { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Coût net de l\'apport (après déduction de la valeur de revente)' },
-                  { key: 'banque', label: 'Banque', tooltip: 'Mensualité brute payée (flux réel sortant vers l\'organisme de financement)' },
-                  { key: 'energie', label: 'Énergie', tooltip: 'Mix Électricité + Essence selon le type de moteur' },
-                  { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt + Vignette + Parking + Entretien' },
-                  { key: 'opportunite', label: 'Opportunité', tooltip: 'Gain manqué sur le placement financier' }
-                ];
 
-                // Couleurs selon le type (5 catégories avec dégradation logique)
-                const colorSchemes = {
-                  blue: {
-                    apportLisse: 'bg-blue-950',    // Nuance 950 (très sombre)
-                    banque: 'bg-blue-700',         // Nuance 700 (sombre)
-                    energie: 'bg-blue-500',        // Nuance 500 (moyen)
-                    fraisFixes: 'bg-blue-300',     // Nuance 300 (clair)
-                    opportunite: 'bg-blue-200'     // Nuance 200 (pastel)
-                  },
-                  emerald: {
-                    apportLisse: 'bg-emerald-950', // Nuance 950 (très sombre)
-                    banque: 'bg-emerald-700',      // Nuance 700 (sombre)
-                    energie: 'bg-emerald-500',     // Nuance 500 (moyen)
-                    fraisFixes: 'bg-emerald-300',  // Nuance 300 (clair)
-                    opportunite: 'bg-emerald-200'  // Nuance 200 (pastel)
-                  },
-                  purple: {
-                    apportLisse: 'bg-purple-950',  // Nuance 950 (très sombre)
-                    banque: 'bg-purple-700',       // Nuance 700 (sombre)
-                    energie: 'bg-purple-500',      // Nuance 500 (moyen)
-                    fraisFixes: 'bg-purple-300',   // Nuance 300 (clair)
-                    opportunite: 'bg-purple-200'   // Nuance 200 (pastel)
-                  }
-                };
-
-                return allData.map((item, index) => {
-                  const colors = colorSchemes[item.color];
-                  const typeLabel = item.type === 'leasing' ? 'Leasing' : item.type === 'credit' ? 'Crédit' : 'Comptant';
+            {/* GRILLE DES VÉHICULES (HORIZONTALE) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
+              {cars.map((car, index) => (
+                <div key={car.id} className="bg-white rounded-xl shadow-md border border-slate-200 flex flex-col relative group">
                   
-                  return (
-                    <div key={`unified-stacked-${index}`} className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 ${item.type === 'leasing' ? 'bg-blue-500' : item.type === 'credit' ? 'bg-emerald-500' : 'bg-purple-500'} rounded`}></div>
-                          <span className="font-medium text-slate-700 text-sm">
-                            {item.vehicle} - {typeLabel}
-                          </span>
+                  {/* Entête Véhicule avec % valeur résiduelle */}
+                  <div className="bg-slate-800 p-4 rounded-t-xl flex justify-between items-center">
+                    <div className="flex-1">
+                      <input 
+                        type="text" 
+                        value={car.name} 
+                        onChange={e => updateCar(index, 'name', e.target.value)}
+                        className="w-full bg-slate-700 text-white font-bold text-lg p-2 rounded border-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-400"
+                        placeholder={`Véhicule ${index + 1}`}
+                      />
+                    </div>
+                    <button 
+                      onClick={() => removeCar(car.id)}
+                      disabled={cars.length === 1}
+                      className="text-slate-400 hover:text-red-400 disabled:opacity-30 transition-colors ml-2"
+                      title="Supprimer ce véhicule"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Contenu en 2 colonnes : Formulaire + Résultats */}
+                  <div className="flex flex-col lg:flex-row flex-grow">
+                    {/* Colonne GAUCHE : Formulaire */}
+                    <div className="lg:w-1/2 p-4 space-y-3 border-r border-slate-100">
+                      {/* Photo URL */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase">URL de la photo</label>
+                        <input 
+                          type="text" 
+                          value={car.photoUrl} 
+                          onChange={e => updateCar(index, 'photoUrl', e.target.value)}
+                          className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
+                          placeholder="https://example.com/photo.jpg"
+                        />
+                        {car.photoUrl && (
+                          <div className="mt-2 relative">
+                            <img 
+                              src={car.photoUrl} 
+                              alt={car.name}
+                              className="w-full h-32 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => openImageModal(car.photoUrl, car.name)}
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.parentElement.innerHTML = '<div class="text-xs text-slate-400 italic">Image non disponible</div>';
+                              }}
+                            />
+                            <button
+                              onClick={() => openImageModal(car.photoUrl, car.name)}
+                              className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full transition-colors"
+                              title="Agrandir l'image"
+                            >
+                              <Maximize2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Type de Motorisation */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase">Type de Motorisation</label>
+                        <select
+                          value={car.motorisation || 'PHEV'}
+                          onChange={e => updateCar(index, 'motorisation', e.target.value)}
+                          className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
+                        >
+                          <option value="ICE">ICE (Thermique)</option>
+                          <option value="PHEV">PHEV (Hybride Rechargeable)</option>
+                          <option value="BEV">BEV (100% Électrique)</option>
+                        </select>
+                        <div className="text-xs text-slate-500 mt-1">
+                          {car.motorisation === 'ICE' && 'Calcul uniquement sur la consommation essence'}
+                          {car.motorisation === 'BEV' && 'Calcul uniquement sur la consommation électrique'}
+                          {car.motorisation === 'PHEV' && 'Calcul mixte selon le % électrique'}
                         </div>
-                        <span className={`font-bold ${item.type === 'leasing' ? 'text-blue-700' : item.type === 'credit' ? 'text-emerald-700' : 'text-purple-700'} text-sm`}>
-                          {item.total.toFixed(0)} CHF
-                        </span>
+                      </div>
+
+                      {/* Commentaire */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase">Commentaire</label>
+                        <textarea 
+                          value={car.commentaire} 
+                          onChange={e => updateCar(index, 'commentaire', e.target.value)}
+                          className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white h-20"
+                          placeholder="Notes, observations, détails..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase">Prix TTC (CHF)</label>
+                        <NumericInput
+                          value={car.prixAchat}
+                          onChange={val => updateCar(index, 'prixAchat', val)}
+                          className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50"
+                          placeholder="ex: 52037.50"
+                        />
                       </div>
                       
-                      {/* Barre empilée */}
-                      <div className="w-full h-5 bg-slate-100 rounded-full overflow-visible flex relative z-30">
-                        {categories.map((category, catIndex) => {
-                          const value = item.breakdown[category.key];
-                          const widthPercentage = (value / maxValue) * 100;
-                          
-                          if (value <= 0) return null;
-                          
-                          // Trouver le premier et dernier segment visible
-                          const visibleCategories = categories.filter(cat => item.breakdown[cat.key] > 0);
-                          const isFirstVisible = catIndex === categories.findIndex(cat => item.breakdown[cat.key] > 0);
-                          const isLastVisible = catIndex === categories.findLastIndex(cat => item.breakdown[cat.key] > 0);
-                          
-                          let roundedClasses = '';
-                          if (isFirstVisible) roundedClasses += ' rounded-l-full';
-                          if (isLastVisible) roundedClasses += ' rounded-r-full';
-                          
-                          return (
-                            <Tooltip
-                              key={`${index}-${category.key}`}
-                              content={`${category.label}: ${value.toFixed(0)} CHF`}
-                              position="top"
-                              width={`${widthPercentage}%`}
-                            >
-                              <div
-                                className={`h-full w-full ${colors[category.key]} transition-all duration-300 hover:opacity-90 ${roundedClasses}`}
-                              >
-                                {/* Supprimé le texte blanc à l'intérieur */}
-                              </div>
-                            </Tooltip>
-                          );
-                        })}
+                      <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg space-y-2">
+                        <span className="text-xs font-bold text-blue-800 uppercase">Conditions leasing</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs text-blue-700">Apport</label>
+                            <NumericInput
+                              value={car.apport}
+                              onChange={val => updateCar(index, 'apport', val)}
+                              className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-blue-700">Taux (%)</label>
+                            <NumericInput
+                              value={car.tauxLeasing}
+                              onChange={val => updateCar(index, 'tauxLeasing', val)}
+                              className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-lg space-y-2">
+                        <span className="text-xs font-bold text-emerald-800 uppercase">Conditions crédit</span>
+                        <div>
+                          <label className="block text-xs text-emerald-700">Apport crédit (différent du leasing)</label>
+                          <NumericInput
+                            value={car.apportCredit} 
+                            onChange={val => updateCar(index, 'apportCredit', val)}
+                            className="w-full p-1.5 border border-emerald-200 rounded text-sm bg-white" 
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="block text-xs font-semibold text-slate-500 uppercase">Valeur Résiduelle (CHF)</label>
+                          {car.prixAchat > 0 && (
+                            <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
+                              {((car.valeurResiduelle / car.prixAchat) * 100).toFixed(1)}%
+                            </span>
+                          )}
+                        </div>
+                        <NumericInput
+                          value={car.valeurResiduelle} 
+                          onChange={val => updateCar(index, 'valeurResiduelle', val)}
+                          className="w-full p-2 border border-slate-300 rounded-lg text-sm" 
+                          placeholder="0.00"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Assurance</label>
+                          <NumericInput
+                            value={car.assurance} 
+                            onChange={val => updateCar(index, 'assurance', val)}
+                            className="w-full p-1.5 border border-slate-200 rounded text-sm" 
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Impôt</label>
+                          <NumericInput
+                            value={car.impotCantonal} 
+                            onChange={val => updateCar(index, 'impotCantonal', val)}
+                            className="w-full p-1.5 border border-slate-200 rounded text-sm" 
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Entretien</label>
+                          <NumericInput
+                            value={car.entretien} 
+                            onChange={val => updateCar(index, 'entretien', val)}
+                            className="w-full p-1.5 border border-slate-200 rounded text-sm" 
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso Élec (kWh/100km)</label>
+                          <NumericInput
+                            value={car.consoElec} 
+                            onChange={val => updateCar(index, 'consoElec', val)}
+                            className="w-full p-1.5 border border-slate-200 rounded text-sm" 
+                            placeholder="0.0"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso Essence (L/100km)</label>
+                          <NumericInput
+                            value={car.consoEssence} 
+                            onChange={val => updateCar(index, 'consoEssence', val)}
+                            className="w-full p-1.5 border border-slate-200 rounded text-sm" 
+                            placeholder="0.0"
+                          />
+                        </div>
+                        <div className="relative">
+                          <label className="block text-[10px] font-bold text-amber-600 uppercase flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            Risque Marché (%)
+                          </label>
+                          <NumericInput
+                            value={car.risqueDepreciation} 
+                            onChange={val => updateCar(index, 'risqueDepreciation', val)}
+                            className="w-full p-1.5 border border-amber-300 rounded text-sm bg-amber-50" 
+                            placeholder="0-30"
+                          />
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center" title="Impact sur la valeur de revente">
+                            !
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  );
-                });
-              })()}
+
+                    {/* Colonne DROITE : Résultats */}
+                    <div className="lg:w-1/2 p-4 bg-slate-50 flex flex-col gap-3 rounded-b-xl lg:rounded-br-xl lg:rounded-bl-none">
+                      
+                      <div className="text-center bg-white py-2 px-3 rounded shadow-sm border border-slate-200">
+                        <span className="text-xs text-slate-500 uppercase font-bold">Usage Mensuel</span>
+                        <div className="font-bold text-slate-700 text-xl mt-1">{results[index].fraisUsage.toFixed(0)} <span className="text-sm font-normal">CHF</span></div>
+                      </div>
+
+                      {/* Graphiques TCO Empilés */}
+                      <div className="space-y-4">
+                        <div className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
+                          <StackedBarChart 
+                            breakdown={results[index].leasing.breakdown}
+                            type="leasing"
+                            vehicleName={car.name}
+                            motorisation={car.motorisation}
+                          />
+                        </div>
+
+                        <div className="bg-white border border-emerald-200 rounded-lg p-3 shadow-sm">
+                          <StackedBarChart 
+                            breakdown={results[index].credit.breakdown}
+                            type="credit"
+                            vehicleName={car.name}
+                            motorisation={car.motorisation}
+                          />
+                        </div>
+
+                        <div className="bg-white border border-purple-200 rounded-lg p-3 shadow-sm">
+                          <StackedBarChart 
+                            breakdown={results[index].comptant.breakdown}
+                            type="comptant"
+                            vehicleName={car.name}
+                            motorisation={car.motorisation}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* BOUTON AJOUTER */}
+              <div className="col-span-1 md:col-span-2 lg:col-span-3 flex justify-center mt-4">
+                <button 
+                  onClick={addCar}
+                  className="w-full max-w-md rounded-xl border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 flex flex-col items-center justify-center text-slate-500 hover:text-indigo-600 transition-all group p-8"
+                >
+                  <div className="w-16 h-16 bg-slate-100 group-hover:bg-indigo-100 rounded-full flex items-center justify-center mb-4 transition-colors">
+                    <Plus className="w-8 h-8" />
+                  </div>
+                  <span className="font-bold text-lg">Ajouter un véhicule</span>
+                  <span className="text-sm mt-1 opacity-70">Comparer une autre offre</span>
+                </button>
+              </div>
             </div>
+          </div>
+
+          {/* Colonne DROITE (Résultat) - 4/12 - Panneau de classement persistant */}
+          <div className="lg:col-span-4 sticky top-4 space-y-4">
             
+            {/* Bloc Comparaison des Coûts Mensuels */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-slate-800">
+                <BarChart3 className="w-6 h-6 text-indigo-500" /> 
+                Comparaison des Coûts Mensuels (Synthèse)
+              </h2>
+              
+              <div className="space-y-4">
+                {(() => {
+                  // Créer un tableau plat avec toutes les données
+                  const allData = [];
+                  results.forEach(r => {
+                    allData.push(
+                      { 
+                        type: 'leasing', 
+                        vehicle: r.name, 
+                        breakdown: r.leasing.breakdown,
+                        color: 'blue',
+                        total: r.leasing.tco
+                      },
+                      { 
+                        type: 'credit', 
+                        vehicle: r.name, 
+                        breakdown: r.credit.breakdown,
+                        color: 'emerald',
+                        total: r.credit.tco
+                      },
+                      { 
+                        type: 'comptant', 
+                        vehicle: r.name, 
+                        breakdown: r.comptant.breakdown,
+                        color: 'purple',
+                        total: r.comptant.tco
+                      }
+                    );
+                  });
+                  
+                  // Trier par valeur croissante
+                  allData.sort((a, b) => a.total - b.total);
+                  
+                  // Trouver la valeur max pour l'échelle avec marge de 5%
+                  const maxValue = Math.max(...allData.map(d => d.breakdown.total), 1) * 1.05;
+                  
+                  // Couleurs selon le type (5 catégories avec dégradation logique)
+                  const colorSchemes = {
+                    blue: {
+                      apportLisse: 'bg-blue-950',    // Nuance 950 (très sombre)
+                      banque: 'bg-blue-700',         // Nuance 700 (sombre)
+                      energie: 'bg-blue-500',        // Nuance 500 (moyen)
+                      fraisFixes: 'bg-blue-300',     // Nuance 300 (clair)
+                      opportunite: 'bg-blue-200'     // Nuance 200 (pastel)
+                    },
+                    emerald: {
+                      apportLisse: 'bg-emerald-950', // Nuance 950 (très sombre)
+                      banque: 'bg-emerald-700',      // Nuance 700 (sombre)
+                      energie: 'bg-emerald-500',     // Nuance 500 (moyen)
+                      fraisFixes: 'bg-emerald-300',  // Nuance 300 (clair)
+                      opportunite: 'bg-emerald-200'  // Nuance 200 (pastel)
+                    },
+                    purple: {
+                      apportLisse: 'bg-purple-950',  // Nuance 950 (très sombre)
+                      banque: 'bg-purple-700',       // Nuance 700 (sombre)
+                      energie: 'bg-purple-500',      // Nuance 500 (moyen)
+                      fraisFixes: 'bg-purple-300',   // Nuance 300 (clair)
+                      opportunite: 'bg-purple-200'   // Nuance 200 (pastel)
+                    }
+                  };
+
+                  return allData.map((item, index) => {
+                    const colors = colorSchemes[item.color];
+                    const typeLabel = item.type === 'leasing' ? 'Leasing' : item.type === 'credit' ? 'Crédit' : 'Comptant';
+                    
+                    return (
+                      <div key={`ranking-${index}`} className="space-y-1">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 ${item.type === 'leasing' ? 'bg-blue-500' : item.type === 'credit' ? 'bg-emerald-500' : 'bg-purple-500'} rounded`}></div>
+                            <span className="font-medium text-slate-700 text-sm">
+                              {item.vehicle} - {typeLabel}
+                            </span>
+                          </div>
+                          <span className={`font-bold ${item.type === 'leasing' ? 'text-blue-700' : item.type === 'credit' ? 'text-emerald-700' : 'text-purple-700'} text-sm`}>
+                            {item.total.toFixed(0)} CHF
+                          </span>
+                        </div>
+                        
+                        {/* Barre empilée - version compacte */}
+                        <div className="w-full h-4 bg-slate-100 rounded-full overflow-visible flex relative z-30">
+                          {Object.keys(item.breakdown).filter(key => key !== 'total').map((key, catIndex) => {
+                            const value = item.breakdown[key];
+                            const widthPercentage = (value / maxValue) * 100;
+                            
+                            if (value <= 0) return null;
+                            
+                            // Couleur selon la catégorie
+                            let bgColor = '';
+                            switch(key) {
+                              case 'apportLisse': bgColor = colors.apportLisse; break;
+                              case 'banque': bgColor = colors.banque; break;
+                              case 'energie': bgColor = colors.energie; break;
+                              case 'fraisFixes': bgColor = colors.fraisFixes; break;
+                              case 'opportunite': bgColor = colors.opportunite; break;
+                              default: bgColor = 'bg-slate-400';
+                            }
+                            
+                            return (
+                              <Tooltip
+                                key={`${index}-${key}`}
+                                content={`${key === 'apportLisse' ? 'Apport Lissé' : 
+                                          key === 'banque' ? 'Banque' : 
+                                          key === 'energie' ? 'Énergie' : 
+                                          key === 'fraisFixes' ? 'Frais Fixes' : 'Opportunité'}: ${value.toFixed(0)} CHF`}
+                                position="top"
+                                width={`${widthPercentage}%`}
+                              >
+                                <div
+                                  className={`h-full w-full ${bgColor} transition-all duration-300 hover:opacity-90`}
+                                />
+                              </Tooltip>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* Légende des segments */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h3 className="font-bold text-slate-700 mb-4">Légende des segments</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-slate-900 rounded"></div>
+                    <span className="text-sm text-slate-700">Apport Lissé</span>
+                  </div>
+                  <span className="text-xs text-slate-500">Coût net de l'apport</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-slate-700 rounded"></div>
+                    <span className="text-sm text-slate-700">Banque</span>
+                  </div>
+                  <span className="text-xs text-slate-500">Mensualité brute</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-slate-600 rounded"></div>
+                    <span className="text-sm text-slate-700">Énergie</span>
+                  </div>
+                  <span className="text-xs text-slate-500">Carburant/Électricité</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-slate-400 rounded"></div>
+                    <span className="text-sm text-slate-700">Frais Fixes</span>
+                  </div>
+                  <span className="text-xs text-slate-500">Assurance + Entretien</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-slate-200 rounded"></div>
+                    <span className="text-sm text-slate-700">Opportunité</span>
+                  </div>
+                  <span className="text-xs text-slate-500">Gain manqué placement</span>
+                </div>
+              </div>
+            </div>
+
             {/* Résumé statistique */}
             {results.length > 0 && (
-              <div className="mt-8 pt-6 border-t border-slate-200">
-                <h3 className="font-bold text-slate-700 mb-4">Résumé par Mode de Financement</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 className="font-bold text-slate-700 mb-4">Résumé par Mode</h3>
+                <div className="space-y-4">
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <div className="text-blue-800 font-bold text-lg">Leasing</div>
                     <div className="text-2xl font-black text-blue-700 mt-1">
@@ -1200,426 +1573,10 @@ const App = () => {
                     <div className="text-sm text-purple-600 mt-1">Moyenne mensuelle</div>
                   </div>
                 </div>
-                
-                {/* Meilleure option par véhicule */}
-                <div className="mt-6">
-                  <h4 className="font-bold text-slate-700 mb-3">Meilleure Option par Véhicule</h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-slate-200">
-                          <th className="text-left py-2 font-medium text-slate-500">Véhicule</th>
-                          <th className="text-right py-2 font-medium text-slate-500">Leasing</th>
-                          <th className="text-right py-2 font-medium text-slate-500">Crédit</th>
-                          <th className="text-right py-2 font-medium text-slate-500">Comptant</th>
-                          <th className="text-right py-2 font-medium text-slate-500">Meilleur choix</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {results.map((r, index) => {
-                          const tcoLeasing = r.leasing.tco;
-                          const tcoCredit = r.credit.tco;
-                          const tcoComptant = r.comptant.tco;
-                          const minTCO = Math.min(tcoLeasing, tcoCredit, tcoComptant);
-                          const bestType = minTCO === tcoLeasing ? 'leasing' : minTCO === tcoCredit ? 'credit' : 'comptant';
-                          const bestColor = bestType === 'leasing' ? 'text-blue-600' : bestType === 'credit' ? 'text-emerald-600' : 'text-purple-600';
-                          
-                          return (
-                            <tr key={`best-${r.id}`} className="border-b border-slate-100 hover:bg-slate-50">
-                              <td className="py-2 font-medium text-slate-700">{r.name}</td>
-                              <td className={`text-right py-2 font-bold ${minTCO === tcoLeasing ? 'text-blue-700' : 'text-slate-600'}`}>{tcoLeasing.toFixed(0)}</td>
-                              <td className={`text-right py-2 font-bold ${minTCO === tcoCredit ? 'text-emerald-700' : 'text-slate-600'}`}>{tcoCredit.toFixed(0)}</td>
-                              <td className={`text-right py-2 font-bold ${minTCO === tcoComptant ? 'text-purple-700' : 'text-slate-600'}`}>{tcoComptant.toFixed(0)}</td>
-                              <td className={`text-right py-2 font-bold ${bestColor}`}>
-                                {bestType === 'leasing' && 'Leasing'}
-                                {bestType === 'credit' && 'Crédit'}
-                                {bestType === 'comptant' && 'Comptant'}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
               </div>
             )}
           </div>
         </div>
-
-        {/* PARAMÈTRES GLOBAUX */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-indigo-800">
-            <Wallet className="w-5 h-5" /> Paramètres d'Usage & Économiques
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-10 gap-4">
-             <div className="col-span-1">
-               <label className="block text-xs font-medium text-slate-500">Durée (mois)</label>
-               <NumericInput
-                 value={dureeMois} 
-                 onChange={setDureeMois}
-                 className="w-full p-2 border rounded-md" 
-               />
-             </div>
-             <div className="col-span-1">
-               <label className="block text-xs font-medium text-slate-500">Km annuel</label>
-               <NumericInput
-                 value={kmAnnuel} 
-                 onChange={setKmAnnuel}
-                 className="w-full p-2 border rounded-md" 
-               />
-             </div>
-             <div className="col-span-1">
-               <label className="block text-xs font-medium text-slate-500">Parking /mois</label>
-               <NumericInput
-                 value={parking} 
-                 onChange={setParking}
-                 className="w-full p-2 border rounded-md" 
-               />
-             </div>
-             <div className="col-span-1">
-               <label className="block text-xs font-medium text-slate-500">Vignette /an</label>
-               <NumericInput
-                 value={vignette} 
-                 onChange={setVignette}
-                 className="w-full p-2 border rounded-md" 
-               />
-             </div>
-             <div className="col-span-1 border-l border-slate-200 pl-4">
-               <label className="block text-xs font-bold text-emerald-600">Crédit (%)</label>
-               <NumericInput
-                 value={tauxCreditGlobal} 
-                 onChange={setTauxCreditGlobal}
-                 className="w-full p-2 border border-emerald-300 rounded-md bg-emerald-50 text-emerald-900 font-bold" 
-               />
-             </div>
-             <div className="col-span-1">
-               <label className="block text-xs font-medium text-amber-600">Inflation (%)</label>
-               <NumericInput
-                 value={inflationAnnuelle} 
-                 onChange={setInflationAnnuelle}
-                 className="w-full p-2 border border-amber-300 rounded-md bg-amber-50 text-amber-900" 
-               />
-             </div>
-             <div className="col-span-1">
-               <label className="block text-xs font-medium text-cyan-600">Placement (%)</label>
-               <NumericInput
-                 value={tauxPlacement} 
-                 onChange={setTauxPlacement}
-                 className="w-full p-2 border border-cyan-300 rounded-md bg-cyan-50 text-cyan-900" 
-               />
-             </div>
-             <div className="col-span-1 border-l border-slate-200 pl-4">
-               <label className="block text-xs font-medium text-orange-600">Essence (CHF/L)</label>
-               <NumericInput
-                 value={prixEssence} 
-                 onChange={setPrixEssence}
-                 className="w-full p-2 border border-orange-300 rounded-md bg-orange-50 text-orange-900" 
-               />
-             </div>
-             <div className="col-span-1">
-               <label className="block text-xs font-medium text-blue-600">Électricité (CHF/kWh)</label>
-               <NumericInput
-                 value={prixElec} 
-                 onChange={setPrixElec}
-                 className="w-full p-2 border border-blue-300 rounded-md bg-blue-50 text-blue-900" 
-               />
-             </div>
-             <div className="col-span-1">
-               <label className="block text-xs font-medium text-purple-600">% Électrique</label>
-               <NumericInput
-                 value={ratioElec} 
-                 onChange={setRatioElec}
-                 className="w-full p-2 border border-purple-300 rounded-md bg-purple-50 text-purple-900" 
-               />
-               <div className="text-xs text-purple-500 mt-1">
-                 S'applique uniquement aux véhicules PHEV
-               </div>
-             </div>
-          </div>
-          <div className="mt-4 text-xs text-slate-500">
-            <span className="font-medium">Coût d'opportunité :</span> Le taux de placement représente le rendement annuel que vous pourriez obtenir en investissant votre argent plutôt que de l'utiliser pour acheter un véhicule. Ce coût est inclus dans le TCO.
-          </div>
-        </div>
-
-        {/* GRILLE DES VÉHICULES (HORIZONTALE) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
-          {cars.map((car, index) => (
-            <div key={car.id} className="bg-white rounded-xl shadow-md border border-slate-200 flex flex-col relative group">
-              
-              {/* Entête Véhicule avec % valeur résiduelle */}
-              <div className="bg-slate-800 p-4 rounded-t-xl flex justify-between items-center">
-                <div className="flex-1">
-                  <input 
-                    type="text" 
-                    value={car.name} 
-                    onChange={e => updateCar(index, 'name', e.target.value)}
-                    className="w-full bg-slate-700 text-white font-bold text-lg p-2 rounded border-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-400"
-                    placeholder={`Véhicule ${index + 1}`}
-                  />
-                </div>
-                <button 
-                  onClick={() => removeCar(car.id)}
-                  disabled={cars.length === 1}
-                  className="text-slate-400 hover:text-red-400 disabled:opacity-30 transition-colors ml-2"
-                  title="Supprimer ce véhicule"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Contenu en 2 colonnes : Formulaire + Résultats */}
-              <div className="flex flex-col lg:flex-row flex-grow">
-                {/* Colonne GAUCHE : Formulaire */}
-                <div className="lg:w-1/2 p-4 space-y-3 border-r border-slate-100">
-                  {/* Photo URL */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase">URL de la photo</label>
-                    <input 
-                      type="text" 
-                      value={car.photoUrl} 
-                      onChange={e => updateCar(index, 'photoUrl', e.target.value)}
-                      className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
-                      placeholder="https://example.com/photo.jpg"
-                    />
-                    {car.photoUrl && (
-                      <div className="mt-2 relative">
-                        <img 
-                          src={car.photoUrl} 
-                          alt={car.name}
-                          className="w-full h-32 object-cover rounded-lg border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => openImageModal(car.photoUrl, car.name)}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.parentElement.innerHTML = '<div class="text-xs text-slate-400 italic">Image non disponible</div>';
-                          }}
-                        />
-                        <button
-                          onClick={() => openImageModal(car.photoUrl, car.name)}
-                          className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full transition-colors"
-                          title="Agrandir l'image"
-                        >
-                          <Maximize2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Type de Motorisation */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase">Type de Motorisation</label>
-                    <select
-                      value={car.motorisation || 'PHEV'}
-                      onChange={e => updateCar(index, 'motorisation', e.target.value)}
-                      className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
-                    >
-                      <option value="ICE">ICE (Thermique)</option>
-                      <option value="PHEV">PHEV (Hybride Rechargeable)</option>
-                      <option value="BEV">BEV (100% Électrique)</option>
-                    </select>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {car.motorisation === 'ICE' && 'Calcul uniquement sur la consommation essence'}
-                      {car.motorisation === 'BEV' && 'Calcul uniquement sur la consommation électrique'}
-                      {car.motorisation === 'PHEV' && 'Calcul mixte selon le % électrique'}
-                    </div>
-                  </div>
-
-                  {/* Commentaire */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase">Commentaire</label>
-                    <textarea 
-                      value={car.commentaire} 
-                      onChange={e => updateCar(index, 'commentaire', e.target.value)}
-                      className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white h-20"
-                      placeholder="Notes, observations, détails..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase">Prix TTC (CHF)</label>
-                    <NumericInput
-                      value={car.prixAchat}
-                      onChange={val => updateCar(index, 'prixAchat', val)}
-                      className="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50"
-                      placeholder="ex: 52037.50"
-                    />
-                  </div>
-                  
-                  <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg space-y-2">
-                    <span className="text-xs font-bold text-blue-800 uppercase">Conditions leasing</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-xs text-blue-700">Apport</label>
-                        <NumericInput
-                          value={car.apport}
-                          onChange={val => updateCar(index, 'apport', val)}
-                          className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-blue-700">Taux (%)</label>
-                        <NumericInput
-                          value={car.tauxLeasing}
-                          onChange={val => updateCar(index, 'tauxLeasing', val)}
-                          className="w-full p-1.5 border border-blue-200 rounded text-sm bg-white font-bold"
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-lg space-y-2">
-                    <span className="text-xs font-bold text-emerald-800 uppercase">Conditions crédit</span>
-                    <div>
-                      <label className="block text-xs text-emerald-700">Apport crédit (différent du leasing)</label>
-                      <NumericInput
-                        value={car.apportCredit} 
-                        onChange={val => updateCar(index, 'apportCredit', val)}
-                        className="w-full p-1.5 border border-emerald-200 rounded text-sm bg-white" 
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
-
-                    <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <label className="block text-xs font-semibold text-slate-500 uppercase">Valeur Résiduelle (CHF)</label>
-                        {car.prixAchat > 0 && (
-                          <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
-                            {((car.valeurResiduelle / car.prixAchat) * 100).toFixed(1)}%
-                          </span>
-                        )}
-                      </div>
-                      <NumericInput
-                        value={car.valeurResiduelle} 
-                        onChange={val => updateCar(index, 'valeurResiduelle', val)}
-                        className="w-full p-2 border border-slate-300 rounded-lg text-sm" 
-                        placeholder="0.00"
-                      />
-                    </div>
-
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Assurance</label>
-                      <NumericInput
-                        value={car.assurance} 
-                        onChange={val => updateCar(index, 'assurance', val)}
-                        className="w-full p-1.5 border border-slate-200 rounded text-sm" 
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Impôt</label>
-                      <NumericInput
-                        value={car.impotCantonal} 
-                        onChange={val => updateCar(index, 'impotCantonal', val)}
-                        className="w-full p-1.5 border border-slate-200 rounded text-sm" 
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Entretien</label>
-                      <NumericInput
-                        value={car.entretien} 
-                        onChange={val => updateCar(index, 'entretien', val)}
-                        className="w-full p-1.5 border border-slate-200 rounded text-sm" 
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso Élec (kWh/100km)</label>
-                      <NumericInput
-                        value={car.consoElec} 
-                        onChange={val => updateCar(index, 'consoElec', val)}
-                        className="w-full p-1.5 border border-slate-200 rounded text-sm" 
-                        placeholder="0.0"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Conso Essence (L/100km)</label>
-                      <NumericInput
-                        value={car.consoEssence} 
-                        onChange={val => updateCar(index, 'consoEssence', val)}
-                        className="w-full p-1.5 border border-slate-200 rounded text-sm" 
-                        placeholder="0.0"
-                      />
-                    </div>
-                    <div className="relative">
-                      <label className="block text-[10px] font-bold text-amber-600 uppercase flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        Risque Marché (%)
-                      </label>
-                      <NumericInput
-                        value={car.risqueDepreciation} 
-                        onChange={val => updateCar(index, 'risqueDepreciation', val)}
-                        className="w-full p-1.5 border border-amber-300 rounded text-sm bg-amber-50" 
-                        placeholder="0-30"
-                      />
-                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center" title="Impact sur la valeur de revente">
-                        !
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Colonne DROITE : Résultats */}
-                <div className="lg:w-1/2 p-4 bg-slate-50 flex flex-col gap-3 rounded-b-xl lg:rounded-br-xl lg:rounded-bl-none">
-                  
-                  <div className="text-center bg-white py-2 px-3 rounded shadow-sm border border-slate-200">
-                    <span className="text-xs text-slate-500 uppercase font-bold">Usage Mensuel</span>
-                    <div className="font-bold text-slate-700 text-xl mt-1">{results[index].fraisUsage.toFixed(0)} <span className="text-sm font-normal">CHF</span></div>
-                  </div>
-
-                  {/* Graphiques TCO Empilés */}
-                  <div className="space-y-4">
-                    <div className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
-                      <StackedBarChart 
-                        breakdown={results[index].leasing.breakdown}
-                        type="leasing"
-                        vehicleName={car.name}
-                        motorisation={car.motorisation}
-                      />
-                    </div>
-
-                    <div className="bg-white border border-emerald-200 rounded-lg p-3 shadow-sm">
-                      <StackedBarChart 
-                        breakdown={results[index].credit.breakdown}
-                        type="credit"
-                        vehicleName={car.name}
-                        motorisation={car.motorisation}
-                      />
-                    </div>
-
-                    <div className="bg-white border border-purple-200 rounded-lg p-3 shadow-sm">
-                      <StackedBarChart 
-                        breakdown={results[index].comptant.breakdown}
-                        type="comptant"
-                        vehicleName={car.name}
-                        motorisation={car.motorisation}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* BOUTON AJOUTER */}
-          <div className="col-span-1 md:col-span-2 lg:col-span-3 flex justify-center mt-4">
-            <button 
-              onClick={addCar}
-              className="w-full max-w-md rounded-xl border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 flex flex-col items-center justify-center text-slate-500 hover:text-indigo-600 transition-all group p-8"
-            >
-              <div className="w-16 h-16 bg-slate-100 group-hover:bg-indigo-100 rounded-full flex items-center justify-center mb-4 transition-colors">
-                <Plus className="w-8 h-8" />
-              </div>
-              <span className="font-bold text-lg">Ajouter un véhicule</span>
-              <span className="text-sm mt-1 opacity-70">Comparer une autre offre</span>
-            </button>
-          </div>
-        </div>
-
       </div>
 
       {/* MODAL D'IMAGE */}
@@ -1662,7 +1619,6 @@ const App = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };
