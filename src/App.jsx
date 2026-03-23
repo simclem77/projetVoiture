@@ -122,35 +122,35 @@ const Tooltip = ({ children, content, position = 'top', width = '100%' }) => {
   );
 };
 
-// Composant StackedBarChart pour les graphiques TCO empilés (5 catégories simplifiées)
+// Composant StackedBarChart pour les graphiques TCO empilés (5 catégories avec "Banque")
 const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
   const categories = [
-    { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Apport initial divisé sur la durée du financement' },
-    { key: 'mensuel', label: 'Mensuel', tooltip: 'Mensualité à la banque (leasing ou crédit)' },
+    { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Coût net de l\'apport (après déduction de la valeur de revente)' },
+    { key: 'banque', label: 'Banque', tooltip: 'Mensualité brute payée (flux réel sortant vers l\'organisme de financement)' },
     { key: 'energie', label: 'Énergie', tooltip: motorisation === 'ICE' ? 'Essence uniquement' : motorisation === 'BEV' ? 'Électricité uniquement' : 'Mix PHEV (électricité + essence)' },
     { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt + Vignette + Parking + Entretien' },
-    { key: 'opportunite', label: 'Opportunité', tooltip: 'Manque à gagner sur le placement de l\'apport ou du capital' }
+    { key: 'opportunite', label: 'Opportunité', tooltip: 'Gain manqué sur le placement' }
   ];
 
   // Couleurs selon le type de financement (5 catégories)
   const colorSchemes = {
     leasing: {
       apportLisse: 'bg-blue-900',
-      mensuel: 'bg-blue-700',
+      banque: 'bg-blue-700',
       energie: 'bg-blue-600',
       fraisFixes: 'bg-blue-400',
       opportunite: 'bg-indigo-500'
     },
     credit: {
       apportLisse: 'bg-emerald-900',
-      mensuel: 'bg-emerald-700',
+      banque: 'bg-emerald-700',
       energie: 'bg-emerald-600',
       fraisFixes: 'bg-emerald-400',
       opportunite: 'bg-teal-500'
     },
     comptant: {
       apportLisse: 'bg-purple-900',
-      mensuel: 'bg-purple-700',
+      banque: 'bg-purple-700',
       energie: 'bg-purple-600',
       fraisFixes: 'bg-purple-400',
       opportunite: 'bg-purple-500'
@@ -669,41 +669,42 @@ const App = () => {
       const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
 
-      // Breakdown simplifié avec 5 catégories claires (Priorité au Flux Mensuel Réel)
+      // Breakdown simplifié avec 5 catégories claires (Nouvelles formules)
+      const depreciationTotale = car.prixAchat - valeurResiduelleReelle;
       const fraisFixesMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking + (car.entretien / 12);
       
-      // Leasing : mensuel = pmt (flux réel), apportLisse = coût net du capital
-      const mensuelLeasing = pmtLeasing;
-      const apportLisseLeasing = ((car.apport + (pmtLeasing * dureeMois) - car.valeurResiduelle) / dureeMois) - pmtLeasing;
+      // Leasing : banque = pmt, apportLisse = (Apport - ValeurResiduelleReelle) / dureeMois
+      const banqueLeasing = pmtLeasing;
+      const apportLisseLeasing = (car.apport - car.valeurResiduelle) / dureeMois;
       
       const breakdownLeasing = {
         apportLisse: Math.max(0, apportLisseLeasing), // Éviter les valeurs négatives
-        mensuel: mensuelLeasing,
+        banque: banqueLeasing,
         energie: coutEnergieMensuel,
         fraisFixes: fraisFixesMensuel,
         opportunite: opportuniteApportLeasingMensuel,
         total: tcoLeasing
       };
 
-      // Crédit : mensuel = pmt (flux réel), apportLisse = coût net du capital
-      const mensuelCredit = pmtCredit;
-      const apportLisseCredit = ((car.apportCredit + (pmtCredit * dureeMois) - valeurResiduelleReelle) / dureeMois) - pmtCredit;
+      // Crédit : banque = pmt, apportLisse = (ApportCredit - ValeurResiduelleReelle) / dureeMois
+      const banqueCredit = pmtCredit;
+      const apportLisseCredit = (car.apportCredit - valeurResiduelleReelle) / dureeMois;
       
       const breakdownCredit = {
         apportLisse: Math.max(0, apportLisseCredit), // Éviter les valeurs négatives
-        mensuel: mensuelCredit,
+        banque: banqueCredit,
         energie: coutEnergieMensuel,
         fraisFixes: fraisFixesMensuel,
         opportunite: opportuniteApportCreditMensuel,
         total: tcoCredit
       };
 
-      // Comptant : pas de mensualité, apport = dépréciation totale
-      const apportLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
+      // Comptant : pas de banque, apport = dépréciation totale
+      const apportLisseComptant = depreciationTotale / dureeMois;
       
       const breakdownComptant = {
         apportLisse: apportLisseComptant,
-        mensuel: 0,
+        banque: 0,
         energie: coutEnergieMensuel,
         fraisFixes: fraisFixesMensuel,
         opportunite: opportuniteComptantMensuel,
@@ -1017,7 +1018,7 @@ const App = () => {
               </div>
             </div>
 
-            {/* Légende des segments (5 catégories simplifiées) */}
+            {/* Légende des segments (5 catégories avec "Banque") */}
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <h4 className="text-xs font-bold text-slate-600 mb-2">Légende des segments (du plus foncé au plus clair) :</h4>
               <div className="flex flex-wrap gap-3">
@@ -1027,7 +1028,7 @@ const App = () => {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 bg-slate-700 rounded"></div>
-                  <span className="text-xs text-slate-700">Mensuel</span>
+                  <span className="text-xs text-slate-700">Banque</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 bg-slate-600 rounded"></div>
@@ -1081,34 +1082,34 @@ const App = () => {
                 // Trouver la valeur max pour l'échelle avec marge de 5%
                 const maxValue = Math.max(...allData.map(d => d.breakdown.total), 1) * 1.05;
                 
-                // Définir les catégories et couleurs (5 catégories simplifiées)
+                // Définir les catégories et couleurs (5 catégories avec "Banque")
                 const categories = [
-                  { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Apport initial divisé sur la durée du financement' },
-                  { key: 'mensuel', label: 'Mensuel', tooltip: 'Mensualité à la banque (leasing ou crédit)' },
+                  { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Coût net de l\'apport (après déduction de la valeur de revente)' },
+                  { key: 'banque', label: 'Banque', tooltip: 'Mensualité brute payée (flux réel sortant vers l\'organisme de financement)' },
                   { key: 'energie', label: 'Énergie', tooltip: 'Mix Électricité + Essence selon le type de moteur' },
                   { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt + Vignette + Parking + Entretien' },
-                  { key: 'opportunite', label: 'Opportunité', tooltip: 'Manque à gagner sur le placement financier' }
+                  { key: 'opportunite', label: 'Opportunité', tooltip: 'Gain manqué sur le placement financier' }
                 ];
 
-                // Couleurs selon le type (5 catégories simplifiées)
+                // Couleurs selon le type (5 catégories avec "Banque")
                 const colorSchemes = {
                   blue: {
                     apportLisse: 'bg-blue-900',
-                    mensuel: 'bg-blue-700',
+                    banque: 'bg-blue-700',
                     energie: 'bg-blue-600',
                     fraisFixes: 'bg-blue-400',
                     opportunite: 'bg-sky-200'
                   },
                   emerald: {
                     apportLisse: 'bg-emerald-900',
-                    mensuel: 'bg-emerald-700',
+                    banque: 'bg-emerald-700',
                     energie: 'bg-emerald-600',
                     fraisFixes: 'bg-emerald-400',
                     opportunite: 'bg-green-200'
                   },
                   purple: {
                     apportLisse: 'bg-purple-900',
-                    mensuel: 'bg-purple-700',
+                    banque: 'bg-purple-700',
                     energie: 'bg-purple-600',
                     fraisFixes: 'bg-purple-400',
                     opportunite: 'bg-fuchsia-200'
