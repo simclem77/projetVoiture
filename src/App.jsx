@@ -1115,13 +1115,13 @@ const App = () => {
                       </div>
                     )}
                     
-                    {/* Nom du véhicule */}
-                    <input 
-                      type="text" 
+                    {/* Nom du véhicule - Zone agrandie */}
+                    <textarea 
                       value={car.name} 
                       onChange={e => updateCar(index, 'name', e.target.value)}
-                      className="w-full text-center font-bold text-slate-800 text-lg p-2 rounded border-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-400"
+                      className="w-full text-center font-bold text-slate-800 text-lg p-2 rounded border border-slate-300 focus:ring-2 focus:ring-indigo-500 placeholder-slate-400 h-20 resize-none overflow-auto align-top"
                       placeholder={`Véhicule ${index + 1}`}
+                      rows="3"
                     />
                     
                     {/* Prix TTC en gros */}
