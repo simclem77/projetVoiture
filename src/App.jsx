@@ -125,7 +125,8 @@ const Tooltip = ({ children, content, position = 'top', width = '100%' }) => {
 // Composant StackedBarChart pour les graphiques TCO empilés
 const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
   const categories = [
-    { key: 'financement', label: 'Financement', tooltip: 'Loyer leasing, mensualité crédit ou dépréciation mensuelle cash' },
+    { key: 'apportInitial', label: 'Apport Initial', tooltip: 'Apport divisé sur la durée du financement' },
+    { key: 'mensuel', label: 'Mensuel', tooltip: 'Mensualité à la banque (leasing ou crédit)' },
     { key: 'energie', label: 'Énergie', tooltip: motorisation === 'ICE' ? 'Essence uniquement' : motorisation === 'BEV' ? 'Électricité uniquement' : 'Mix PHEV (électricité + essence)' },
     { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt + Parking + Vignette' },
     { key: 'entretien', label: 'Entretien', tooltip: 'Frais de maintenance mensuels' },
@@ -135,21 +136,24 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
   // Couleurs selon le type de financement
   const colorSchemes = {
     leasing: {
-      financement: 'bg-blue-800',
+      apportInitial: 'bg-blue-900',
+      mensuel: 'bg-blue-700',
       energie: 'bg-blue-600',
       fraisFixes: 'bg-blue-400',
       entretien: 'bg-blue-300',
       opportunite: 'bg-indigo-500'
     },
     credit: {
-      financement: 'bg-emerald-800',
+      apportInitial: 'bg-emerald-900',
+      mensuel: 'bg-emerald-700',
       energie: 'bg-emerald-600',
       fraisFixes: 'bg-emerald-400',
       entretien: 'bg-emerald-300',
       opportunite: 'bg-teal-500'
     },
     comptant: {
-      financement: 'bg-purple-800',
+      apportInitial: 'bg-purple-900',
+      mensuel: 'bg-purple-700',
       energie: 'bg-purple-600',
       fraisFixes: 'bg-purple-400',
       entretien: 'bg-purple-300',
@@ -669,9 +673,13 @@ const App = () => {
       const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
 
-      // Breakdown détaillé pour les graphiques empilés
+      // Breakdown détaillé pour les graphiques empilés (Financement simplifié)
+      const apportInitialLeasing = car.apport / dureeMois;
+      const mensuelLeasing = pmtLeasing;
+      
       const breakdownLeasing = {
-        financement: coutVehiculeLisseLeasing,
+        apportInitial: apportInitialLeasing,
+        mensuel: mensuelLeasing,
         energie: coutEnergieMensuel,
         fraisFixes: coutFixeMensuel,
         entretien: car.entretien / 12,
@@ -679,8 +687,12 @@ const App = () => {
         total: tcoLeasing
       };
 
+      const apportInitialCredit = car.apportCredit / dureeMois;
+      const mensuelCredit = pmtCredit;
+      
       const breakdownCredit = {
-        financement: coutVehiculeLisseCredit,
+        apportInitial: apportInitialCredit,
+        mensuel: mensuelCredit,
         energie: coutEnergieMensuel,
         fraisFixes: coutFixeMensuel,
         entretien: car.entretien / 12,
@@ -688,8 +700,11 @@ const App = () => {
         total: tcoCredit
       };
 
+      const apportInitialComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
+      
       const breakdownComptant = {
-        financement: coutVehiculeLisseComptant,
+        apportInitial: apportInitialComptant,
+        mensuel: 0,
         energie: coutEnergieMensuel,
         fraisFixes: coutFixeMensuel,
         entretien: car.entretien / 12,
@@ -1068,33 +1083,37 @@ const App = () => {
                 // Trouver la valeur max pour l'échelle avec marge de 5%
                 const maxValue = Math.max(...allData.map(d => d.total), 1) * 1.05;
                 
-                // Définir les catégories et couleurs
+                // Définir les catégories et couleurs (mises à jour)
                 const categories = [
-                  { key: 'financement', label: 'Financement', tooltip: 'Loyer leasing, mensualité crédit ou amortissement net cash' },
+                  { key: 'apportInitial', label: 'Apport Initial', tooltip: 'Apport divisé sur la durée du financement' },
+                  { key: 'mensuel', label: 'Mensuel', tooltip: 'Mensualité à la banque (leasing ou crédit)' },
                   { key: 'energie', label: 'Énergie', tooltip: 'Mix Électricité + Essence selon le type de moteur' },
                   { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt Vaud + Macaron Lausanne + Parking' },
                   { key: 'entretien', label: 'Entretien', tooltip: 'Provision mensuelle maintenance' },
                   { key: 'opportunite', label: 'Opportunité', tooltip: 'Manque à gagner sur le placement financier' }
                 ];
 
-                // Couleurs selon le type
+                // Couleurs selon le type (mises à jour)
                 const colorSchemes = {
                   blue: {
-                    financement: 'bg-blue-800',
+                    apportInitial: 'bg-blue-900',
+                    mensuel: 'bg-blue-700',
                     energie: 'bg-blue-600',
                     fraisFixes: 'bg-blue-400',
                     entretien: 'bg-blue-300',
                     opportunite: 'bg-sky-200'
                   },
                   emerald: {
-                    financement: 'bg-emerald-800',
+                    apportInitial: 'bg-emerald-900',
+                    mensuel: 'bg-emerald-700',
                     energie: 'bg-emerald-600',
                     fraisFixes: 'bg-emerald-400',
                     entretien: 'bg-emerald-300',
                     opportunite: 'bg-green-200'
                   },
                   purple: {
-                    financement: 'bg-purple-800',
+                    apportInitial: 'bg-purple-900',
+                    mensuel: 'bg-purple-700',
                     energie: 'bg-purple-600',
                     fraisFixes: 'bg-purple-400',
                     entretien: 'bg-purple-300',
