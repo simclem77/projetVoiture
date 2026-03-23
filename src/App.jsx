@@ -677,10 +677,11 @@ const App = () => {
       const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
 
-      // Breakdown détaillé pour les graphiques empilés (Financement décomposé)
-      const apportLisseLeasing = car.apport / dureeMois;
+      // Breakdown détaillé pour les graphiques empilés (Financement décomposé avec règle de priorité)
+      const depreciationTotaleLeasing = car.prixAchat - car.valeurResiduelle;
+      const apportLisseLeasing = Math.min(car.apport, depreciationTotaleLeasing) / dureeMois;
+      const amortissementLeasing = Math.max(0, depreciationTotaleLeasing - car.apport) / dureeMois;
       const capitalEmprunteLeasing = car.prixAchat - car.apport;
-      const amortissementLeasing = (capitalEmprunteLeasing - car.valeurResiduelle) / dureeMois;
       const interetsLeasing = ((pmtLeasing * dureeMois) - capitalEmprunteLeasing) / dureeMois;
       
       const breakdownLeasing = {
@@ -694,9 +695,10 @@ const App = () => {
         total: tcoLeasing
       };
 
-      const apportLisseCredit = car.apportCredit / dureeMois;
+      const depreciationTotaleCredit = car.prixAchat - valeurResiduelleReelle;
+      const apportLisseCredit = Math.min(car.apportCredit, depreciationTotaleCredit) / dureeMois;
+      const amortissementCredit = Math.max(0, depreciationTotaleCredit - car.apportCredit) / dureeMois;
       const capitalEmprunteCredit = car.prixAchat - car.apportCredit;
-      const amortissementCredit = (capitalEmprunteCredit - valeurResiduelleReelle) / dureeMois;
       const interetsCredit = ((pmtCredit * dureeMois) - capitalEmprunteCredit) / dureeMois;
       
       const breakdownCredit = {
@@ -710,11 +712,13 @@ const App = () => {
         total: tcoCredit
       };
 
-      const apportLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
+      const depreciationTotaleComptant = car.prixAchat - valeurResiduelleReelle;
+      const apportLisseComptant = Math.min(car.prixAchat, depreciationTotaleComptant) / dureeMois;
+      const amortissementComptant = Math.max(0, depreciationTotaleComptant - car.prixAchat) / dureeMois;
       
       const breakdownComptant = {
         apportLisse: apportLisseComptant,
-        amortissement: 0,
+        amortissement: amortissementComptant,
         interets: 0,
         energie: coutEnergieMensuel,
         fraisFixes: coutFixeMensuel,
