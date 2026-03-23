@@ -89,14 +89,14 @@ const formatDecimal = (value, decimals = 2) => {
   return num.toFixed(decimals); // Utilise le point comme séparateur décimal
 };
 
-// Composant Tooltip optimisé pour les barres empilées
+// Composant Tooltip optimisé pour les barres empilées (sans gaps)
 const Tooltip = ({ children, content, position = 'top', width = '100%' }) => {
   const [isVisible, setIsVisible] = useState(false);
   
   return (
     <div 
-      className="relative flex"
-      style={{ width }}
+      className="relative"
+      style={{ width, flexShrink: 0 }}
       onMouseEnter={() => setIsVisible(true)}
       onMouseLeave={() => setIsVisible(false)}
     >
