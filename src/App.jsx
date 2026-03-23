@@ -168,12 +168,21 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
         <span className="font-bold text-slate-800">{breakdown.total.toFixed(0)} CHF</span>
       </div>
       
-      <div className="w-full h-6 bg-slate-100 rounded-full overflow-hidden flex relative">
-        {categories.map(category => {
+      <div className="w-full h-6 bg-slate-100 rounded-full overflow-visible flex relative z-10">
+        {categories.map((category, catIndex) => {
           const value = breakdown[category.key];
           const percentage = (value / breakdown.total) * 100;
           
           if (value <= 0) return null;
+          
+          // Trouver le premier et dernier segment visible
+          const visibleCategories = categories.filter(cat => breakdown[cat.key] > 0);
+          const isFirstVisible = catIndex === categories.findIndex(cat => breakdown[cat.key] > 0);
+          const isLastVisible = catIndex === categories.findLastIndex(cat => breakdown[cat.key] > 0);
+          
+          let roundedClasses = '';
+          if (isFirstVisible) roundedClasses += ' rounded-l-full';
+          if (isLastVisible) roundedClasses += ' rounded-r-full';
           
           return (
             <Tooltip
@@ -183,7 +192,7 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
               width={`${percentage}%`}
             >
               <div
-                className={`h-full w-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
+                className={`h-full w-full ${colors[category.key]} transition-all duration-300 hover:opacity-90 ${roundedClasses}`}
               >
                 {/* Supprimé le texte blanc à l'intérieur */}
               </div>
@@ -1112,12 +1121,21 @@ const App = () => {
                       </div>
                       
                       {/* Barre empilée */}
-                      <div className="w-full h-5 bg-slate-100 rounded-full overflow-hidden flex relative group">
-                        {categories.map(category => {
+                      <div className="w-full h-5 bg-slate-100 rounded-full overflow-visible flex relative z-10">
+                        {categories.map((category, catIndex) => {
                           const value = item.breakdown[category.key];
                           const widthPercentage = (value / maxValue) * 100;
                           
                           if (value <= 0) return null;
+                          
+                          // Trouver le premier et dernier segment visible
+                          const visibleCategories = categories.filter(cat => item.breakdown[cat.key] > 0);
+                          const isFirstVisible = catIndex === categories.findIndex(cat => item.breakdown[cat.key] > 0);
+                          const isLastVisible = catIndex === categories.findLastIndex(cat => item.breakdown[cat.key] > 0);
+                          
+                          let roundedClasses = '';
+                          if (isFirstVisible) roundedClasses += ' rounded-l-full';
+                          if (isLastVisible) roundedClasses += ' rounded-r-full';
                           
                           return (
                             <Tooltip
@@ -1127,7 +1145,7 @@ const App = () => {
                               width={`${widthPercentage}%`}
                             >
                               <div
-                                className={`h-full w-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
+                                className={`h-full w-full ${colors[category.key]} transition-all duration-300 hover:opacity-90 ${roundedClasses}`}
                               >
                                 {/* Supprimé le texte blanc à l'intérieur */}
                               </div>
