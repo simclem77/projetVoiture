@@ -183,16 +183,9 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
               width={`${percentage}%`}
             >
               <div
-                className={`h-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
-                style={{ width: `${percentage}%` }}
+                className={`h-full w-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
               >
-                <div className="relative w-full h-full">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                      {value.toFixed(0)}
-                    </span>
-                  </div>
-                </div>
+                {/* Supprimé le texte blanc à l'intérieur */}
               </div>
             </Tooltip>
           );
@@ -1063,8 +1056,8 @@ const App = () => {
                 // Trier par valeur croissante
                 allData.sort((a, b) => a.total - b.total);
                 
-                // Trouver la valeur max pour l'échelle
-                const maxValue = Math.max(...allData.map(d => d.total), 1);
+                // Trouver la valeur max pour l'échelle avec marge de 5%
+                const maxValue = Math.max(...allData.map(d => d.total), 1) * 1.05;
                 
                 // Définir les catégories et couleurs
                 const categories = [
@@ -1122,7 +1115,6 @@ const App = () => {
                       <div className="w-full h-5 bg-slate-100 rounded-full overflow-hidden flex relative group">
                         {categories.map(category => {
                           const value = item.breakdown[category.key];
-                          const percentage = (value / item.total) * 100;
                           const widthPercentage = (value / maxValue) * 100;
                           
                           if (value <= 0) return null;
@@ -1132,18 +1124,12 @@ const App = () => {
                               key={`${index}-${category.key}`}
                               content={`${category.label}: ${value.toFixed(0)} CHF`}
                               position="top"
+                              width={`${widthPercentage}%`}
                             >
                               <div
-                                className={`h-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
-                                style={{ width: `${widthPercentage}%` }}
+                                className={`h-full w-full ${colors[category.key]} transition-all duration-300 hover:opacity-90`}
                               >
-                                <div className="relative w-full h-full">
-                                  <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className="text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                      {value.toFixed(0)}
-                                    </span>
-                                  </div>
-                                </div>
+                                {/* Supprimé le texte blanc à l'intérieur */}
                               </div>
                             </Tooltip>
                           );
