@@ -95,7 +95,7 @@ const Tooltip = ({ children, content, position = 'top', width = '100%' }) => {
   
   return (
     <div 
-      className="relative"
+      className="relative flex h-full"
       style={{ width, flexShrink: 0 }}
       onMouseEnter={() => setIsVisible(true)}
       onMouseLeave={() => setIsVisible(false)}
