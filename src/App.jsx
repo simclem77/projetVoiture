@@ -125,8 +125,9 @@ const Tooltip = ({ children, content, position = 'top', width = '100%' }) => {
 // Composant StackedBarChart pour les graphiques TCO empilés
 const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
   const categories = [
-    { key: 'apportInitial', label: 'Apport Initial', tooltip: 'Apport divisé sur la durée du financement' },
-    { key: 'mensuel', label: 'Mensuel', tooltip: 'Mensualité à la banque (leasing ou crédit)' },
+    { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Apport initial divisé sur la durée du financement' },
+    { key: 'amortissement', label: 'Amortissement', tooltip: 'Part du capital remboursée chaque mois' },
+    { key: 'interets', label: 'Intérêts', tooltip: 'Frais bancaires pour le financement' },
     { key: 'energie', label: 'Énergie', tooltip: motorisation === 'ICE' ? 'Essence uniquement' : motorisation === 'BEV' ? 'Électricité uniquement' : 'Mix PHEV (électricité + essence)' },
     { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt + Parking + Vignette' },
     { key: 'entretien', label: 'Entretien', tooltip: 'Frais de maintenance mensuels' },
@@ -136,24 +137,27 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
   // Couleurs selon le type de financement
   const colorSchemes = {
     leasing: {
-      apportInitial: 'bg-blue-900',
-      mensuel: 'bg-blue-700',
+      apportLisse: 'bg-blue-900',
+      amortissement: 'bg-blue-800',
+      interets: 'bg-blue-700',
       energie: 'bg-blue-600',
       fraisFixes: 'bg-blue-400',
       entretien: 'bg-blue-300',
       opportunite: 'bg-indigo-500'
     },
     credit: {
-      apportInitial: 'bg-emerald-900',
-      mensuel: 'bg-emerald-700',
+      apportLisse: 'bg-emerald-900',
+      amortissement: 'bg-emerald-800',
+      interets: 'bg-emerald-700',
       energie: 'bg-emerald-600',
       fraisFixes: 'bg-emerald-400',
       entretien: 'bg-emerald-300',
       opportunite: 'bg-teal-500'
     },
     comptant: {
-      apportInitial: 'bg-purple-900',
-      mensuel: 'bg-purple-700',
+      apportLisse: 'bg-purple-900',
+      amortissement: 'bg-purple-800',
+      interets: 'bg-purple-700',
       energie: 'bg-purple-600',
       fraisFixes: 'bg-purple-400',
       entretien: 'bg-purple-300',
@@ -172,7 +176,7 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
         <span className="font-bold text-slate-800">{breakdown.total.toFixed(0)} CHF</span>
       </div>
       
-      <div className="w-full h-6 bg-slate-100 rounded-full overflow-visible flex relative z-10">
+      <div className="w-full h-6 bg-slate-100 rounded-full overflow-visible flex relative z-30">
         {categories.map((category, catIndex) => {
           const value = breakdown[category.key];
           const percentage = (value / breakdown.total) * 100;
@@ -673,13 +677,15 @@ const App = () => {
       const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
 
-      // Breakdown détaillé pour les graphiques empilés (Financement simplifié)
-      const apportInitialLeasing = car.apport / dureeMois;
-      const mensuelLeasing = pmtLeasing;
+      // Breakdown détaillé pour les graphiques empilés (Financement décomposé)
+      const apportLisseLeasing = car.apport / dureeMois;
+      const amortissementLeasing = (car.prixAchat - car.apport - car.valeurResiduelle) / dureeMois;
+      const interetsLeasing = pmtLeasing - ((car.prixAchat - car.apport - car.valeurResiduelle) / dureeMois);
       
       const breakdownLeasing = {
-        apportInitial: apportInitialLeasing,
-        mensuel: mensuelLeasing,
+        apportLisse: apportLisseLeasing,
+        amortissement: amortissementLeasing,
+        interets: interetsLeasing,
         energie: coutEnergieMensuel,
         fraisFixes: coutFixeMensuel,
         entretien: car.entretien / 12,
@@ -687,12 +693,14 @@ const App = () => {
         total: tcoLeasing
       };
 
-      const apportInitialCredit = car.apportCredit / dureeMois;
-      const mensuelCredit = pmtCredit;
+      const apportLisseCredit = car.apportCredit / dureeMois;
+      const amortissementCredit = (car.prixAchat - car.apportCredit - car.valeurResiduelle) / dureeMois;
+      const interetsCredit = pmtCredit - ((car.prixAchat - car.apportCredit - car.valeurResiduelle) / dureeMois);
       
       const breakdownCredit = {
-        apportInitial: apportInitialCredit,
-        mensuel: mensuelCredit,
+        apportLisse: apportLisseCredit,
+        amortissement: amortissementCredit,
+        interets: interetsCredit,
         energie: coutEnergieMensuel,
         fraisFixes: coutFixeMensuel,
         entretien: car.entretien / 12,
@@ -700,11 +708,12 @@ const App = () => {
         total: tcoCredit
       };
 
-      const apportInitialComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
+      const apportLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       
       const breakdownComptant = {
-        apportInitial: apportInitialComptant,
-        mensuel: 0,
+        apportLisse: apportLisseComptant,
+        amortissement: 0,
+        interets: 0,
         energie: coutEnergieMensuel,
         fraisFixes: coutFixeMensuel,
         entretien: car.entretien / 12,
@@ -1019,13 +1028,21 @@ const App = () => {
               </div>
             </div>
 
-            {/* Légende des segments */}
+            {/* Légende des segments (mise à jour avec 7 catégories) */}
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <h4 className="text-xs font-bold text-slate-600 mb-2">Légende des segments (du plus foncé au plus clair) :</h4>
               <div className="flex flex-wrap gap-3">
                 <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 bg-slate-900 rounded"></div>
+                  <span className="text-xs text-slate-700">Apport Lissé</span>
+                </div>
+                <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 bg-slate-800 rounded"></div>
-                  <span className="text-xs text-slate-700">Financement</span>
+                  <span className="text-xs text-slate-700">Amortissement</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 bg-slate-700 rounded"></div>
+                  <span className="text-xs text-slate-700">Intérêts</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 bg-slate-600 rounded"></div>
@@ -1081,39 +1098,43 @@ const App = () => {
                 allData.sort((a, b) => a.total - b.total);
                 
                 // Trouver la valeur max pour l'échelle avec marge de 5%
-                const maxValue = Math.max(...allData.map(d => d.total), 1) * 1.05;
+                const maxValue = Math.max(...allData.map(d => d.breakdown.total), 1) * 1.05;
                 
-                // Définir les catégories et couleurs (mises à jour)
+                // Définir les catégories et couleurs (harmonisées avec StackedBarChart)
                 const categories = [
-                  { key: 'apportInitial', label: 'Apport Initial', tooltip: 'Apport divisé sur la durée du financement' },
-                  { key: 'mensuel', label: 'Mensuel', tooltip: 'Mensualité à la banque (leasing ou crédit)' },
+                  { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Apport initial divisé sur la durée du financement' },
+                  { key: 'amortissement', label: 'Amortissement', tooltip: 'Part du capital remboursée chaque mois' },
+                  { key: 'interets', label: 'Intérêts', tooltip: 'Frais bancaires pour le financement' },
                   { key: 'energie', label: 'Énergie', tooltip: 'Mix Électricité + Essence selon le type de moteur' },
                   { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt Vaud + Macaron Lausanne + Parking' },
                   { key: 'entretien', label: 'Entretien', tooltip: 'Provision mensuelle maintenance' },
                   { key: 'opportunite', label: 'Opportunité', tooltip: 'Manque à gagner sur le placement financier' }
                 ];
 
-                // Couleurs selon le type (mises à jour)
+                // Couleurs selon le type (harmonisées avec StackedBarChart)
                 const colorSchemes = {
                   blue: {
-                    apportInitial: 'bg-blue-900',
-                    mensuel: 'bg-blue-700',
+                    apportLisse: 'bg-blue-900',
+                    amortissement: 'bg-blue-800',
+                    interets: 'bg-blue-700',
                     energie: 'bg-blue-600',
                     fraisFixes: 'bg-blue-400',
                     entretien: 'bg-blue-300',
                     opportunite: 'bg-sky-200'
                   },
                   emerald: {
-                    apportInitial: 'bg-emerald-900',
-                    mensuel: 'bg-emerald-700',
+                    apportLisse: 'bg-emerald-900',
+                    amortissement: 'bg-emerald-800',
+                    interets: 'bg-emerald-700',
                     energie: 'bg-emerald-600',
                     fraisFixes: 'bg-emerald-400',
                     entretien: 'bg-emerald-300',
                     opportunite: 'bg-green-200'
                   },
                   purple: {
-                    apportInitial: 'bg-purple-900',
-                    mensuel: 'bg-purple-700',
+                    apportLisse: 'bg-purple-900',
+                    amortissement: 'bg-purple-800',
+                    interets: 'bg-purple-700',
                     energie: 'bg-purple-600',
                     fraisFixes: 'bg-purple-400',
                     entretien: 'bg-purple-300',
@@ -1140,7 +1161,7 @@ const App = () => {
                       </div>
                       
                       {/* Barre empilée */}
-                      <div className="w-full h-5 bg-slate-100 rounded-full overflow-visible flex relative z-10">
+                      <div className="w-full h-5 bg-slate-100 rounded-full overflow-visible flex relative z-30">
                         {categories.map((category, catIndex) => {
                           const value = item.breakdown[category.key];
                           const widthPercentage = (value / maxValue) * 100;
