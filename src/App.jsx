@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle, Key, Users, Copy, X, Maximize2, Download, Database, Wifi, WifiOff } from 'lucide-react';
+import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle, Key, Users, Copy, X, Maximize2, Download, Database, Wifi, WifiOff, Info, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -112,6 +112,9 @@ const App = () => {
     url: '',
     title: ''
   });
+
+  // --- ÉTAT GUIDE PÉDAGOGIQUE ---
+  const [isGuideOpen, setIsGuideOpen] = useState(true);
 
   // --- PARAMÈTRES GLOBAUX ---
   const [dureeMois, setDureeMois] = useState(48);
@@ -695,6 +698,73 @@ const App = () => {
             )}
           </div>
         </header>
+
+        {/* GUIDE PÉDAGOGIQUE */}
+        <div className="bg-indigo-50 rounded-xl shadow-sm border border-indigo-100 p-4">
+          <button
+            onClick={() => setIsGuideOpen(!isGuideOpen)}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Info className="w-5 h-5 text-indigo-600" />
+              <h2 className="text-lg font-semibold text-indigo-800">
+                Comprendre les modes de financement & les indicateurs économiques
+              </h2>
+            </div>
+            {isGuideOpen ? (
+              <ChevronUp className="w-5 h-5 text-indigo-500" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-indigo-500" />
+            )}
+          </button>
+          
+          {isGuideOpen && (
+            <div className="mt-4 pt-4 border-t border-indigo-100">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Bloc Financements */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-blue-600" />
+                    <h3 className="font-bold text-slate-800">Les Financements</h3>
+                  </div>
+                  <div className="space-y-2 text-sm text-slate-700">
+                    <p><strong>Leasing (Crédit-bail)</strong> : Vous payez pour l'utilisation, pas la possession. Idéal si vous changez de voiture tous les 3-4 ans. À Lausanne, c'est une "assurance" contre la dépréciation : si les règles de circulation changent en 2030, c'est la banque qui assume la perte.</p>
+                    <p><strong>Crédit Privé</strong> : Vous devenez propriétaire immédiatement. <span className="text-emerald-700 font-medium">Avantage vaudois</span> : les intérêts sont déductibles de votre revenu imposable (réduction de 20-30% selon votre tranche).</p>
+                    <p><strong>Achat Comptant</strong> : Attention au coût d'opportunité ! Cet argent ne vous rapporte plus rien sur vos placements (ETF, 3ème pilier). Vous portez 100% du risque de revente.</p>
+                  </div>
+                </div>
+
+                {/* Bloc Indicateurs */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-amber-600" />
+                    <h3 className="font-bold text-slate-800">Les Indicateurs Clés</h3>
+                  </div>
+                  <div className="space-y-2 text-sm text-slate-700">
+                    <p><strong>Taux de Placement (3%)</strong> : Simule le gain manqué sur votre épargne (coût d'opportunité). Si votre épargne rapporte 3% et votre leasing coûte 1,9%, il est mathématiquement plus intelligent de faire un leasing et de laisser votre argent travailler.</p>
+                    <p><strong>Inflation (2%)</strong> : Elle "mange" la valeur de l'argent. Si vous avez une dette fixe (Leasing/Crédit), l'inflation joue pour vous : vous remboursez avec des francs qui ont moins de valeur qu'au premier jour.</p>
+                  </div>
+                </div>
+
+                {/* Bloc Risque & Synthèse */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                    <h3 className="font-bold text-slate-800">Risque Marché & Synthèse</h3>
+                  </div>
+                  <div className="space-y-2 text-sm text-slate-700">
+                    <p><strong>Risque de Dépréciation (0-30%)</strong> : Simule l'impact des futures restrictions de circulation à Lausanne (2030) sur la valeur de revente. Ce risque s'applique au <strong>Crédit</strong> et au <strong>Comptant</strong> (vous êtes propriétaire), mais pas au <strong>Leasing</strong> (la banque assume le risque).</p>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
+                      <p className="text-amber-800 font-medium text-sm">
+                        💡 <strong>Le mode le plus intéressant n'est pas forcément celui sans intérêts.</strong> Si votre taux de placement est supérieur au taux de financement, préserver votre capital est souvent la stratégie la plus rentable.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* SYNTHÈSE GRAPHIQUE UNIFIÉE */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
