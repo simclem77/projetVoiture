@@ -122,45 +122,37 @@ const Tooltip = ({ children, content, position = 'top', width = '100%' }) => {
   );
 };
 
-// Composant StackedBarChart pour les graphiques TCO empilés
+// Composant StackedBarChart pour les graphiques TCO empilés (5 catégories simplifiées)
 const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
   const categories = [
     { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Apport initial divisé sur la durée du financement' },
-    { key: 'amortissement', label: 'Amortissement', tooltip: 'Part du capital remboursée chaque mois' },
-    { key: 'interets', label: 'Intérêts', tooltip: 'Frais bancaires pour le financement' },
+    { key: 'mensuel', label: 'Mensuel', tooltip: 'Mensualité à la banque (leasing ou crédit)' },
     { key: 'energie', label: 'Énergie', tooltip: motorisation === 'ICE' ? 'Essence uniquement' : motorisation === 'BEV' ? 'Électricité uniquement' : 'Mix PHEV (électricité + essence)' },
-    { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt + Parking + Vignette' },
-    { key: 'entretien', label: 'Entretien', tooltip: 'Frais de maintenance mensuels' },
+    { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt + Vignette + Parking + Entretien' },
     { key: 'opportunite', label: 'Opportunité', tooltip: 'Manque à gagner sur le placement de l\'apport ou du capital' }
   ];
 
-  // Couleurs selon le type de financement
+  // Couleurs selon le type de financement (5 catégories)
   const colorSchemes = {
     leasing: {
       apportLisse: 'bg-blue-900',
-      amortissement: 'bg-blue-800',
-      interets: 'bg-blue-700',
+      mensuel: 'bg-blue-700',
       energie: 'bg-blue-600',
       fraisFixes: 'bg-blue-400',
-      entretien: 'bg-blue-300',
       opportunite: 'bg-indigo-500'
     },
     credit: {
       apportLisse: 'bg-emerald-900',
-      amortissement: 'bg-emerald-800',
-      interets: 'bg-emerald-700',
+      mensuel: 'bg-emerald-700',
       energie: 'bg-emerald-600',
       fraisFixes: 'bg-emerald-400',
-      entretien: 'bg-emerald-300',
       opportunite: 'bg-teal-500'
     },
     comptant: {
       apportLisse: 'bg-purple-900',
-      amortissement: 'bg-purple-800',
-      interets: 'bg-purple-700',
+      mensuel: 'bg-purple-700',
       energie: 'bg-purple-600',
       fraisFixes: 'bg-purple-400',
-      entretien: 'bg-purple-300',
       opportunite: 'bg-purple-500'
     }
   };
@@ -677,52 +669,32 @@ const App = () => {
       const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
       const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
 
-      // Breakdown détaillé pour les graphiques empilés (Financement décomposé avec règle de priorité)
-      const depreciationTotaleLeasing = car.prixAchat - car.valeurResiduelle;
-      const apportLisseLeasing = Math.min(car.apport, depreciationTotaleLeasing) / dureeMois;
-      const amortissementLeasing = Math.max(0, depreciationTotaleLeasing - car.apport) / dureeMois;
-      const capitalEmprunteLeasing = car.prixAchat - car.apport;
-      const interetsLeasing = ((pmtLeasing * dureeMois) - capitalEmprunteLeasing) / dureeMois;
+      // Breakdown simplifié avec 5 catégories claires
+      const fraisFixesMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking + (car.entretien / 12);
       
       const breakdownLeasing = {
-        apportLisse: apportLisseLeasing,
-        amortissement: amortissementLeasing,
-        interets: interetsLeasing,
+        apportLisse: car.apport / dureeMois,
+        mensuel: pmtLeasing,
         energie: coutEnergieMensuel,
-        fraisFixes: coutFixeMensuel,
-        entretien: car.entretien / 12,
+        fraisFixes: fraisFixesMensuel,
         opportunite: opportuniteApportLeasingMensuel,
         total: tcoLeasing
       };
 
-      const depreciationTotaleCredit = car.prixAchat - valeurResiduelleReelle;
-      const apportLisseCredit = Math.min(car.apportCredit, depreciationTotaleCredit) / dureeMois;
-      const amortissementCredit = Math.max(0, depreciationTotaleCredit - car.apportCredit) / dureeMois;
-      const capitalEmprunteCredit = car.prixAchat - car.apportCredit;
-      const interetsCredit = ((pmtCredit * dureeMois) - capitalEmprunteCredit) / dureeMois;
-      
       const breakdownCredit = {
-        apportLisse: apportLisseCredit,
-        amortissement: amortissementCredit,
-        interets: interetsCredit,
+        apportLisse: car.apportCredit / dureeMois,
+        mensuel: pmtCredit,
         energie: coutEnergieMensuel,
-        fraisFixes: coutFixeMensuel,
-        entretien: car.entretien / 12,
+        fraisFixes: fraisFixesMensuel,
         opportunite: opportuniteApportCreditMensuel,
         total: tcoCredit
       };
 
-      const depreciationTotaleComptant = car.prixAchat - valeurResiduelleReelle;
-      const apportLisseComptant = Math.min(car.prixAchat, depreciationTotaleComptant) / dureeMois;
-      const amortissementComptant = Math.max(0, depreciationTotaleComptant - car.prixAchat) / dureeMois;
-      
       const breakdownComptant = {
-        apportLisse: apportLisseComptant,
-        amortissement: amortissementComptant,
-        interets: 0,
+        apportLisse: (car.prixAchat - valeurResiduelleReelle) / dureeMois,
+        mensuel: 0,
         energie: coutEnergieMensuel,
-        fraisFixes: coutFixeMensuel,
-        entretien: car.entretien / 12,
+        fraisFixes: fraisFixesMensuel,
         opportunite: opportuniteComptantMensuel,
         total: tcoComptant
       };
@@ -1034,7 +1006,7 @@ const App = () => {
               </div>
             </div>
 
-            {/* Légende des segments (mise à jour avec 7 catégories) */}
+            {/* Légende des segments (5 catégories simplifiées) */}
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
               <h4 className="text-xs font-bold text-slate-600 mb-2">Légende des segments (du plus foncé au plus clair) :</h4>
               <div className="flex flex-wrap gap-3">
@@ -1043,12 +1015,8 @@ const App = () => {
                   <span className="text-xs text-slate-700">Apport Lissé</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 bg-slate-800 rounded"></div>
-                  <span className="text-xs text-slate-700">Amortissement</span>
-                </div>
-                <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 bg-slate-700 rounded"></div>
-                  <span className="text-xs text-slate-700">Intérêts</span>
+                  <span className="text-xs text-slate-700">Mensuel</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 bg-slate-600 rounded"></div>
@@ -1057,10 +1025,6 @@ const App = () => {
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 bg-slate-400 rounded"></div>
                   <span className="text-xs text-slate-700">Frais Fixes</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 bg-slate-300 rounded"></div>
-                  <span className="text-xs text-slate-700">Entretien</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 bg-slate-200 rounded"></div>
@@ -1106,44 +1070,36 @@ const App = () => {
                 // Trouver la valeur max pour l'échelle avec marge de 5%
                 const maxValue = Math.max(...allData.map(d => d.breakdown.total), 1) * 1.05;
                 
-                // Définir les catégories et couleurs (harmonisées avec StackedBarChart)
+                // Définir les catégories et couleurs (5 catégories simplifiées)
                 const categories = [
                   { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Apport initial divisé sur la durée du financement' },
-                  { key: 'amortissement', label: 'Amortissement', tooltip: 'Part du capital remboursée chaque mois' },
-                  { key: 'interets', label: 'Intérêts', tooltip: 'Frais bancaires pour le financement' },
+                  { key: 'mensuel', label: 'Mensuel', tooltip: 'Mensualité à la banque (leasing ou crédit)' },
                   { key: 'energie', label: 'Énergie', tooltip: 'Mix Électricité + Essence selon le type de moteur' },
-                  { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt Vaud + Macaron Lausanne + Parking' },
-                  { key: 'entretien', label: 'Entretien', tooltip: 'Provision mensuelle maintenance' },
+                  { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt + Vignette + Parking + Entretien' },
                   { key: 'opportunite', label: 'Opportunité', tooltip: 'Manque à gagner sur le placement financier' }
                 ];
 
-                // Couleurs selon le type (harmonisées avec StackedBarChart)
+                // Couleurs selon le type (5 catégories simplifiées)
                 const colorSchemes = {
                   blue: {
                     apportLisse: 'bg-blue-900',
-                    amortissement: 'bg-blue-800',
-                    interets: 'bg-blue-700',
+                    mensuel: 'bg-blue-700',
                     energie: 'bg-blue-600',
                     fraisFixes: 'bg-blue-400',
-                    entretien: 'bg-blue-300',
                     opportunite: 'bg-sky-200'
                   },
                   emerald: {
                     apportLisse: 'bg-emerald-900',
-                    amortissement: 'bg-emerald-800',
-                    interets: 'bg-emerald-700',
+                    mensuel: 'bg-emerald-700',
                     energie: 'bg-emerald-600',
                     fraisFixes: 'bg-emerald-400',
-                    entretien: 'bg-emerald-300',
                     opportunite: 'bg-green-200'
                   },
                   purple: {
                     apportLisse: 'bg-purple-900',
-                    amortissement: 'bg-purple-800',
-                    interets: 'bg-purple-700',
+                    mensuel: 'bg-purple-700',
                     energie: 'bg-purple-600',
                     fraisFixes: 'bg-purple-400',
-                    entretien: 'bg-purple-300',
                     opportunite: 'bg-fuchsia-200'
                   }
                 };
