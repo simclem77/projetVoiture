@@ -1,249 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle, Key, Users, Copy, X, Maximize2, Download, Database, Wifi, WifiOff, Info, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
-import { fetchData, saveData, checkHealth, processSyncQueue, isOnline, getQueueSize } from './api';
-
-// --- Configuration pour Raspberry Pi (Mode local uniquement) ---
-const isFirebaseValid = false; // Désactivé pour Raspberry Pi
-const app = null;
-const auth = null;
-const db = null;
-const currentAppId = 'comparateur-auto-local';
-
-// Composant pour la saisie numérique avec gestion optimisée pour mobile
-// Ce composant gère un état local en texte pour permettre de taper "." ou ","
-// sans que le curseur ne saute ou que le caractère disparaisse.
-const NumericInput = ({ value, onChange, className, placeholder, inputMode = "decimal" }) => {
-  const [localValue, setLocalValue] = useState(value?.toString() || "");
-
-  // Synchronisation si la valeur change de l'extérieur
-  useEffect(() => {
-    const stringValue = value?.toString() || "";
-    if (parseFloat(localValue) !== value && localValue !== stringValue) {
-      setLocalValue(stringValue);
-    }
-  }, [value]);
-
-  const handleChange = (e) => {
-    const rawValue = e.target.value;
-    const normalizedValue = rawValue.replace(',', '.');
-
-    // On met à jour l'affichage immédiatement (autorise "7." temporairement)
-    setLocalValue(rawValue);
-
-    // On propage le nombre au parent uniquement si c'est valide
-    const parsed = parseFloat(normalizedValue);
-    if (!isNaN(parsed)) {
-      onChange(parsed);
-    } else if (rawValue === "") {
-      onChange(0);
-    }
-  };
-
-  return (
-    <input
-      type="text"
-      inputMode={inputMode}
-      value={localValue}
-      onChange={handleChange}
-      className={className}
-      placeholder={placeholder}
-    />
-  );
-};
-
-// Fonction utilitaire pour convertir les nombres avec séparateurs décimaux (format suisse)
-const parseDecimal = (value) => {
-  if (typeof value === 'number') return value;
-  if (typeof value !== 'string') return 0;
-  
-  // Si la chaîne est vide, retourner 0
-  if (value.trim() === '') return 0;
-  
-  // Format suisse : point décimal, pas de séparateur de milliers
-  // On accepte les virgules comme séparateurs décimaux (habitude utilisateur)
-  // "7.5" -> 7.5, "7,5" -> 7.5, "52037" -> 52037
-  // "52'037" -> 52037 (supprime apostrophe), "52 037" -> 52037 (supprime espace)
-  
-  // Remplacer les virgules par des points (habitude utilisateur)
-  let normalized = value.replace(',', '.');
-  
-  // Supprimer les apostrophes et espaces (séparateurs de milliers parfois utilisés)
-  normalized = normalized.replace(/['’\s]/g, '');
-  
-  // Supprimer tout ce qui n'est pas chiffre, point ou signe négatif
-  const cleaned = normalized.replace(/[^\d.-]/g, '');
-  
-  // Convertir en nombre
-  const num = parseFloat(cleaned);
-  
-  // Retourner 0 si NaN, sinon le nombre
-  return isNaN(num) ? 0 : num;
-};
-
-// Fonction pour formater l'affichage avec le séparateur approprié (point pour la Suisse)
-const formatDecimal = (value, decimals = 2) => {
-  const num = typeof value === 'number' ? value : parseDecimal(value);
-  return num.toFixed(decimals); // Utilise le point comme séparateur décimal
-};
-
-// Composant Tooltip optimisé pour les barres empilées (sans gaps)
-const Tooltip = ({ children, content, position = 'top', width = '100%' }) => {
-  const [isVisible, setIsVisible] = useState(false);
-  
-  return (
-    <div 
-      className="relative h-full flex" // Ajout de h-full et flex ici
-      style={{ width, flexShrink: 0 }}
-      onMouseEnter={() => setIsVisible(true)}
-      onMouseLeave={() => setIsVisible(false)}
-    >
-      {/* On s'assure que l'enfant prend toute la place du Tooltip */}
-      <div className="w-full h-full">
-        {children}
-      </div>
-      
-      {isVisible && (
-        <div className={`
-          absolute z-50 px-3 py-2 text-xs font-bold text-white bg-slate-800 rounded-lg shadow-lg
-          whitespace-nowrap pointer-events-none
-          ${position === 'top' ? 'bottom-full mb-2 left-1/2 transform -translate-x-1/2' : 'top-full mt-2 left-1/2 transform -translate-x-1/2'}
-        `}>
-          {content}
-          <div className={`
-            absolute w-2 h-2 bg-slate-800 transform rotate-45
-            ${position === 'top' ? 'top-full -mt-1 left-1/2 -translate-x-1/2' : 'bottom-full -mb-1 left-1/2 -translate-x-1/2'}
-          `}></div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Composant StackedBarChart pour les graphiques TCO empilés (5 catégories avec "Banque")
-const StackedBarChart = ({ breakdown, type, vehicleName, motorisation, maxValue }) => {
-  const categories = [
-    { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Coût net de l\'apport (après déduction de la valeur de revente)' },
-    { key: 'banque', label: 'Banque', tooltip: 'Mensualité brute payée (flux réel sortant vers l\'organisme de financement)' },
-    { key: 'energie', label: 'Énergie', tooltip: motorisation === 'ICE' ? 'Essence uniquement' : motorisation === 'BEV' ? 'Électricité uniquement' : 'Mix PHEV (électricité + essence)' },
-    { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt + Vignette + Parking + Entretien' },
-    { key: 'opportunite', label: 'Opportunité', tooltip: 'Gain manqué sur le placement' }
-  ];
-
-  // Couleurs selon le type de financement (5 catégories avec dégradation logique)
-  const colorSchemes = {
-    leasing: {
-      apportLisse: 'bg-blue-950',    // Nuance 950 (très sombre)
-      banque: 'bg-blue-700',         // Nuance 700 (sombre)
-      energie: 'bg-blue-500',        // Nuance 500 (moyen)
-      fraisFixes: 'bg-blue-300',     // Nuance 300 (clair)
-      opportunite: 'bg-blue-200'     // Nuance 200 (pastel)
-    },
-    credit: {
-      apportLisse: 'bg-emerald-950', // Nuance 950 (très sombre)
-      banque: 'bg-emerald-700',      // Nuance 700 (sombre)
-      energie: 'bg-emerald-500',     // Nuance 500 (moyen)
-      fraisFixes: 'bg-emerald-300',  // Nuance 300 (clair)
-      opportunite: 'bg-emerald-200'  // Nuance 200 (pastel)
-    },
-    comptant: {
-      apportLisse: 'bg-purple-950',  // Nuance 950 (très sombre)
-      banque: 'bg-purple-700',       // Nuance 700 (sombre)
-      energie: 'bg-purple-500',      // Nuance 500 (moyen)
-      fraisFixes: 'bg-purple-300',   // Nuance 300 (clair)
-      opportunite: 'bg-purple-200'   // Nuance 200 (pastel)
-    }
-  };
-
-  const colors = colorSchemes[type] || colorSchemes.leasing;
-  const effectiveMaxValue = maxValue || breakdown.total;
-
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between items-center text-xs">
-        <span className="font-medium text-slate-700">
-          {type === 'leasing' ? 'Leasing' : type === 'credit' ? 'Crédit' : 'Comptant'}
-        </span>
-        <span className="font-bold text-slate-800">{breakdown.total.toFixed(0)} CHF</span>
-      </div>
-      
-      <div className="w-full h-6 bg-slate-100 rounded-full overflow-visible flex relative z-30">
-        {categories.map((category, catIndex) => {
-          const value = breakdown[category.key];
-          const percentage = (value / effectiveMaxValue) * 100;
-          
-          if (value <= 0) return null;
-          
-          // Trouver le premier et dernier segment visible
-          const visibleCategories = categories.filter(cat => breakdown[cat.key] > 0);
-          const isFirstVisible = catIndex === categories.findIndex(cat => breakdown[cat.key] > 0);
-          const isLastVisible = catIndex === categories.findLastIndex(cat => breakdown[cat.key] > 0);
-          
-          let roundedClasses = '';
-          if (isFirstVisible) roundedClasses += ' rounded-l-full';
-          if (isLastVisible) roundedClasses += ' rounded-r-full';
-          
-          return (
-            <Tooltip
-              key={category.key}
-              content={`${category.label}: ${value.toFixed(0)} CHF`}
-              position="top"
-              width={`${percentage}%`}
-            >
-              <div
-                className={`h-full w-full ${colors[category.key]} transition-all duration-300 hover:opacity-90 ${roundedClasses}`}
-              >
-                {/* Supprimé le texte blanc à l'intérieur */}
-              </div>
-            </Tooltip>
-          );
-        })}
-      </div>
-      
-      {/* Légende des segments */}
-      <div className="flex flex-wrap gap-1.5 text-[10px]">
-        {categories.map(category => {
-          const value = breakdown[category.key];
-          if (value <= 0) return null;
-          
-          return (
-            <Tooltip
-              key={category.key}
-              content={`${category.label}: ${value.toFixed(0)} CHF - ${category.tooltip}`}
-              position="top"
-            >
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 rounded border border-slate-200 cursor-help">
-                <div className={`w-2 h-2 ${colors[category.key]} rounded`}></div>
-                <span className="text-slate-700 font-medium">{category.label}</span>
-                <span className="text-slate-500">{value.toFixed(0)}</span>
-              </div>
-            </Tooltip>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
+import { fetchData, saveData, checkHealth, processSyncQueue, getQueueSize } from './api';
+import NumericInput from './components/NumericInput';
+import Tooltip from './components/Tooltip';
+import StackedBarChart from './components/StackedBarChart';
+import { calculateResults, calculateMaxTCO, parseDecimal } from './utils/calculations';
 
 const App = () => {
-  // --- ÉTAT AUTH & SAUVEGARDE ---
-  const [user, setUser] = useState(null);
+  // --- ÉTAT GLOBAL GÉNÉRAL ---
+  const [sharedCode, setSharedCode] = useState(() => {
+    return localStorage.getItem('comparateur_shared_code') || 'COMP123';
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [saveError, setSaveError] = useState(false);
   const [apiHealth, setApiHealth] = useState(false);
   const [queueSize, setQueueSize] = useState(0);
-  
-  // --- SYSTÈME DE CODE PARTAGÉ ---
-  const [sharedCode, setSharedCode] = useState(() => {
-    // Récupérer le code depuis le localStorage s'il existe
-    return localStorage.getItem('comparateur_shared_code') || 'COMP123';
-  });
   const [isCodeValid, setIsCodeValid] = useState(true);
   const [showLoadButton, setShowLoadButton] = useState(false);
-  
+  const [isGuideOpen, setIsGuideOpen] = useState(true);
+
   // --- ÉTAT MODAL IMAGE ---
   const [modalImage, setModalImage] = useState({
     isOpen: false,
@@ -251,15 +27,12 @@ const App = () => {
     title: ''
   });
 
-  // --- ÉTAT GUIDE PÉDAGOGIQUE ---
-  const [isGuideOpen, setIsGuideOpen] = useState(true);
-
   // --- PARAMÈTRES GLOBAUX ---
   const [dureeMois, setDureeMois] = useState(48);
-  const [dureeDetention, setDureeDetention] = useState(96); // 8 ans (96 mois) par défaut
+  const [dureeDetention, setDureeDetention] = useState(96);
   const [kmAnnuel, setKmAnnuel] = useState(15000);
-  const [parking, setParking] = useState(0); 
-  const [vignette, setVignette] = useState(40); 
+  const [parking, setParking] = useState(0);
+  const [vignette, setVignette] = useState(40);
   const [tauxCreditGlobal, setTauxCreditGlobal] = useState(4.9);
   const [inflationAnnuelle, setInflationAnnuelle] = useState(2.0);
   const [tauxPlacement, setTauxPlacement] = useState(3.0);
@@ -267,34 +40,33 @@ const App = () => {
   const [prixElec, setPrixElec] = useState(0.33);
   const [ratioElec, setRatioElec] = useState(80);
 
-  // --- VÉHICULES (Tableau d'objets dynamique) ---
+  // --- VÉHICULES ---
   const [cars, setCars] = useState(() => {
-    // Charger les données par défaut immédiatement pour éviter le flash
     return [
       {
         id: 1,
         name: "Votre Devis Actuel",
         photoUrl: "",
         commentaire: "",
-        motorisation: 'PHEV', // ICE, PHEV, BEV
+        motorisation: 'PHEV',
         prixAchat: 52037,
         apport: 15000,
-        apportCredit: 15000, // Apport spécifique pour le crédit
+        apportCredit: 15000,
         tauxLeasing: 0.99,
         valeurResiduelle: 23784,
         assurance: 1500,
         impotCantonal: 450,
-        consoElec: 0, // kWh/100km
-        consoEssence: 7.5, // L/100km
-        risqueDepreciation: 10, // % de risque de dépréciation
-        entretien: 0 
+        consoElec: 0,
+        consoEssence: 7.5,
+        risqueDepreciation: 10,
+        entretien: 0
       },
       {
         id: 2,
         name: "Break Hybride (Exemple)",
         photoUrl: "",
         commentaire: "",
-        motorisation: 'PHEV', // ICE, PHEV, BEV
+        motorisation: 'PHEV',
         prixAchat: 46000,
         apport: 10000,
         apportCredit: 10000,
@@ -302,9 +74,9 @@ const App = () => {
         valeurResiduelle: 18000,
         assurance: 1300,
         impotCantonal: 250,
-        consoElec: 15, // kWh/100km
-        consoEssence: 5.5, // L/100km
-        risqueDepreciation: 15, // % de risque de dépréciation
+        consoElec: 15,
+        consoEssence: 5.5,
+        risqueDepreciation: 15,
         entretien: 700
       },
       {
@@ -312,78 +84,43 @@ const App = () => {
         name: "Électrique Familiale",
         photoUrl: "",
         commentaire: "",
-        motorisation: 'BEV', // ICE, PHEV, BEV
+        motorisation: 'BEV',
         prixAchat: 56000,
         apport: 15000,
         apportCredit: 15000,
         tauxLeasing: 1.5,
         valeurResiduelle: 26000,
         assurance: 1600,
-        impotCantonal: 0, 
-        consoElec: 18, // kWh/100km
-        consoEssence: 0, // L/100km
-        risqueDepreciation: 20, // % de risque de dépréciation
-        entretien: 300 
+        impotCantonal: 0,
+        consoElec: 18,
+        consoEssence: 0,
+        risqueDepreciation: 20,
+        entretien: 300
       }
     ];
   });
-  
-  // Données par défaut si Firebase n'est pas configuré ou si aucune donnée n'existe
-  const defaultCars = [
-    {
-      id: 1,
-      name: "Votre Devis Actuel",
-      photoUrl: "",
-      commentaire: "",
-      prixAchat: 52037,
-      apport: 15000,
-      apportCredit: 15000,
-      tauxLeasing: 0.99,
-      valeurResiduelle: 23784,
-      assurance: 1500,
-      impotCantonal: 450,
-      consommation: 7.5, 
-      prixCarburant: 1.85,
-      entretien: 0 
-    },
-    {
-      id: 2,
-      name: "Break Hybride (Exemple)",
-      photoUrl: "",
-      commentaire: "",
-      prixAchat: 46000,
-      apport: 10000,
-      apportCredit: 10000,
-      tauxLeasing: 2.9,
-      valeurResiduelle: 18000,
-      assurance: 1300,
-      impotCantonal: 250,
-      consommation: 5.5,
-      prixCarburant: 1.85,
-      entretien: 700
-    },
-    {
-      id: 3,
-      name: "Électrique Familiale",
-      photoUrl: "",
-      commentaire: "",
-      prixAchat: 56000,
-      apport: 15000,
-      apportCredit: 15000,
-      tauxLeasing: 1.5,
-      valeurResiduelle: 26000,
-      assurance: 1600,
-      impotCantonal: 0, 
-      consommation: 18, 
-      prixCarburant: 0.28, 
-      entretien: 300 
-    }
-  ];
 
-  // Actions sur les véhicules
+  // --- CALCULS OPTIMISÉS ---
+  const settings = useMemo(() => ({
+    dureeMois,
+    dureeDetention,
+    kmAnnuel,
+    parking,
+    vignette,
+    tauxCreditGlobal,
+    inflationAnnuelle,
+    tauxPlacement,
+    prixEssence,
+    prixElec,
+    ratioElec
+  }), [dureeMois, dureeDetention, kmAnnuel, parking, vignette, tauxCreditGlobal, inflationAnnuelle, tauxPlacement, prixEssence, prixElec, ratioElec]);
+
+  const results = useMemo(() => calculateResults(cars, settings), [cars, settings]);
+  const maxTCO = useMemo(() => calculateMaxTCO(results), [results]);
+
+  // --- ACTIONS SUR LES VÉHICULES ---
   const updateCar = (index, field, value) => {
     const newCars = [...cars];
-    // Utiliser parseDecimal pour les champs numériques
     const numericFields = ['prixAchat', 'apport', 'apportCredit', 'tauxLeasing', 'valeurResiduelle', 
                           'assurance', 'impotCantonal', 'consoElec', 'consoEssence', 'risqueDepreciation', 'entretien'];
     
@@ -393,28 +130,20 @@ const App = () => {
       newCars[index][field] = value;
     }
 
-    // Ajustement automatique des valeurs selon le type de motorisation
     if (field === 'motorisation') {
       const car = newCars[index];
       switch (value) {
-        case 'ICE': // Thermique
-          // Impôt cantonal plus élevé (barème Vaudois)
+        case 'ICE':
           if (car.impotCantonal < 400) car.impotCantonal = 450;
-          // Risque de dépréciation plus fort pour Lausanne 2030
           if (car.risqueDepreciation < 15) car.risqueDepreciation = 20;
-          // Consommation électrique à 0
           car.consoElec = 0;
           break;
-        case 'BEV': // Électrique
-          // Exonération d'impôt cantonal (si toujours en vigueur)
+        case 'BEV':
           car.impotCantonal = 0;
-          // Risque de dépréciation faible
           if (car.risqueDepreciation > 10) car.risqueDepreciation = 5;
-          // Consommation essence à 0
           car.consoEssence = 0;
           break;
-        case 'PHEV': // Hybride Rechargeable
-          // Valeurs intermédiaires
+        case 'PHEV':
           if (car.impotCantonal === 0) car.impotCantonal = 250;
           if (car.risqueDepreciation < 10) car.risqueDepreciation = 15;
           break;
@@ -431,14 +160,17 @@ const App = () => {
       name: `Nouveau Véhicule`,
       photoUrl: "",
       commentaire: "",
+      motorisation: 'PHEV',
       prixAchat: 40000,
       apport: 10000,
+      apportCredit: 10000,
       tauxLeasing: 2.9,
       valeurResiduelle: 15000,
       assurance: 1200,
       impotCantonal: 300,
-      consommation: 6.0,
-      prixCarburant: 1.85,
+      consoElec: 10,
+      consoEssence: 5.0,
+      risqueDepreciation: 15,
       entretien: 500
     }]);
   };
@@ -449,13 +181,12 @@ const App = () => {
     }
   };
 
-  // --- EFFET DE CHARGEMENT INITIAL (API + localStorage) ---
+  // --- CHARGEMENT & SAUVEGARDE ---
   useEffect(() => {
     const loadInitialData = async () => {
       console.log(`🔄 Chargement des données pour le code: ${sharedCode}`);
       
       try {
-        // 1. Essayer de charger depuis l'API SQLite
         const data = await fetchData(sharedCode);
         if (data && data.cars) {
           setCars(data.cars);
@@ -469,13 +200,12 @@ const App = () => {
           if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
           setIsCodeValid(true);
           console.log('✅ Données chargées depuis l\'API SQLite');
-          return; // Données trouvées dans l'API, on s'arrête là
+          return;
         }
       } catch (error) {
         console.warn('⚠️ API non disponible, fallback localStorage:', error.message);
       }
       
-      // 2. Fallback : charger depuis localStorage
       const savedData = localStorage.getItem(`comparateur_${sharedCode}`);
       if (savedData) {
         try {
@@ -502,7 +232,6 @@ const App = () => {
     loadInitialData();
   }, [sharedCode]);
 
-  // Sauvegarde automatique quand les données changent
   useEffect(() => {
     const saveTimeout = setTimeout(() => {
       const data = {
@@ -518,7 +247,6 @@ const App = () => {
         updatedAt: new Date().toISOString()
       };
       
-      // Sauvegarde dans l'API SQLite
       saveData(sharedCode, data).then(result => {
         if (result.success) {
           setLastSaved(new Date());
@@ -531,12 +259,11 @@ const App = () => {
         console.warn('Erreur sauvegarde auto:', error);
       });
       
-    }, 2000); // Délai de 2s pour éviter trop de requêtes
+    }, 2000);
 
     return () => clearTimeout(saveTimeout);
   }, [cars, dureeMois, kmAnnuel, parking, vignette, tauxCreditGlobal, inflationAnnuelle, tauxPlacement, sharedCode]);
 
-  // Vérifier la santé de l'API au démarrage
   useEffect(() => {
     checkHealth().then(healthy => {
       setApiHealth(healthy);
@@ -549,19 +276,18 @@ const App = () => {
       }
     });
     
-    // Vérifier périodiquement
     const healthInterval = setInterval(() => {
       checkHealth().then(setApiHealth);
-    }, 30000); // Toutes les 30 secondes
+    }, 30000);
     
     return () => clearInterval(healthInterval);
   }, []);
 
-  // Mettre à jour la taille de la queue
   useEffect(() => {
     setQueueSize(getQueueSize());
   }, [cars, sharedCode]);
 
+  // --- FONCTIONS UTILITAIRES ---
   const saveDataToServer = async () => {
     setIsSaving(true);
     
@@ -604,166 +330,15 @@ const App = () => {
     }
   };
 
-  // --- MOTEUR DE CALCUL ---
-  const calculateResults = () => {
-    return cars.map(car => {
-      // A. Coût Énergie Mensuel (adapté au type de motorisation)
-      const distMensuelle = kmAnnuel / 12;
-      let coutEnergieMensuel = 0;
-      
-      switch (car.motorisation) {
-        case 'ICE': // Thermique
-          coutEnergieMensuel = (distMensuelle / 100) * car.consoEssence * prixEssence;
-          break;
-        case 'BEV': // Électrique
-          coutEnergieMensuel = (distMensuelle / 100) * car.consoElec * prixElec;
-          break;
-        case 'PHEV': // Hybride Rechargeable
-        default:
-          coutEnergieMensuel = (
-            (distMensuelle * (ratioElec / 100) / 100 * car.consoElec * prixElec) +
-            (distMensuelle * (1 - ratioElec / 100) / 100 * car.consoEssence * prixEssence)
-          );
-          break;
-      }
-
-      // Valeur résiduelle réelle avec formule de dépréciation long terme
-      // PrixAchat * (0.85 ^ (dureeDetention / 12)) * (1 - risqueDepreciation / 100)
-      const depreciationFactor = Math.pow(0.85, dureeDetention / 12);
-      const valeurResiduelleReelle = car.prixAchat * depreciationFactor * (1 - car.risqueDepreciation / 100);
-
-      // Bonus d'entretien de +20% si durée détention > 60 mois
-      const entretienMensuel = car.entretien / 12;
-      const entretienAjuste = dureeDetention > 60 ? entretienMensuel * 1.2 : entretienMensuel;
-
-      // Frais Fixes mensuels
-      const fraisFixesMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking + entretienAjuste;
-
-      // Calculs de base pour chaque mode de financement
-      
-      // 1. LEASING (durée fixe = dureeMois)
-      const capitalFinanceLeasing = car.prixAchat - car.apport;
-      const rLeasing = (car.tauxLeasing / 100) / 12;
-      let pmtLeasing = 0;
-      if (rLeasing > 0) {
-        const facteur = Math.pow(1 + rLeasing, -dureeMois);
-        const denom = (1 - facteur) / rLeasing;
-        pmtLeasing = (capitalFinanceLeasing - (car.valeurResiduelle * facteur)) / (denom * (1 + rLeasing));
-      } else {
-        pmtLeasing = (capitalFinanceLeasing - car.valeurResiduelle) / dureeMois;
-      }
-
-      // 2. CRÉDIT (durée du crédit = dureeMois, détention = dureeDetention)
-      const capitalFinanceCredit = car.prixAchat - car.apportCredit;
-      const rCredit = (tauxCreditGlobal / 100) / 12;
-      let pmtCredit = 0;
-      if (rCredit > 0) {
-        pmtCredit = capitalFinanceCredit * (rCredit / (1 - Math.pow(1 + rCredit, -dureeMois)));
-      } else {
-        pmtCredit = capitalFinanceCredit / dureeMois;
-      }
-
-      // Calcul des 5 piliers selon les nouvelles formules
-      
-      // Pilier 1: Banque
-      const banqueLeasing = pmtLeasing; // Mensualité brute
-      const banqueCredit = (pmtCredit * dureeMois) / dureeDetention; // Lissé sur la durée de détention
-      const banqueComptant = 0;
-
-      // Pilier 2: Apport Lissé
-      const apportLisseLeasing = Math.max(0, car.apport / dureeMois);
-      const apportLisseCredit = Math.max(0, (car.apportCredit - valeurResiduelleReelle) / dureeDetention);
-      const apportLisseComptant = Math.max(0, (car.prixAchat - valeurResiduelleReelle) / dureeDetention);
-
-      // Pilier 3: Énergie
-      const energie = coutEnergieMensuel;
-
-      // Pilier 4: Frais Fixes
-      const fraisFixes = fraisFixesMensuel;
-
-      // Pilier 5: Opportunité (Coût d'opportunité sur capital immobilisé)
-      const capitalImmobiliseLeasing = car.apport;
-      const capitalImmobiliseCredit = car.apportCredit;
-      const capitalImmobiliseComptant = car.prixAchat;
-      
-      const opportuniteLeasing = (capitalImmobiliseLeasing * tauxPlacement / 100) / 12;
-      const opportuniteCredit = (capitalImmobiliseCredit * tauxPlacement / 100) / 12;
-      const opportuniteComptant = (capitalImmobiliseComptant * tauxPlacement / 100) / 12;
-
-      // TCO total (moyenne mensuelle sur la durée de détention)
-      const tcoLeasing = apportLisseLeasing + banqueLeasing + energie + fraisFixes + opportuniteLeasing;
-      const tcoCredit = apportLisseCredit + banqueCredit + energie + fraisFixes + opportuniteCredit;
-      const tcoComptant = apportLisseComptant + banqueComptant + energie + fraisFixes + opportuniteComptant;
-
-      // Breakdown pour les graphiques
-      const breakdownLeasing = {
-        apportLisse: apportLisseLeasing,
-        banque: banqueLeasing,
-        energie: energie,
-        fraisFixes: fraisFixes,
-        opportunite: opportuniteLeasing,
-        total: tcoLeasing
-      };
-
-      const breakdownCredit = {
-        apportLisse: apportLisseCredit,
-        banque: banqueCredit,
-        energie: energie,
-        fraisFixes: fraisFixes,
-        opportunite: opportuniteCredit,
-        total: tcoCredit
-      };
-
-      const breakdownComptant = {
-        apportLisse: apportLisseComptant,
-        banque: banqueComptant,
-        energie: energie,
-        fraisFixes: fraisFixes,
-        opportunite: opportuniteComptant,
-        total: tcoComptant
-      };
-
-      return {
-        ...car,
-        coutEnergieMensuel: energie,
-        fraisFixesMensuel: fraisFixes,
-        fraisUsage: energie + fraisFixes,
-        valeurResiduelleReelle,
-        leasing: {
-          pmt: pmtLeasing > 0 ? pmtLeasing : 0,
-          tco: tcoLeasing,
-          breakdown: breakdownLeasing
-        },
-        credit: {
-          pmt: pmtCredit > 0 ? pmtCredit : 0,
-          tco: tcoCredit,
-          breakdown: breakdownCredit
-        },
-        comptant: {
-          tco: tcoComptant,
-          breakdown: breakdownComptant
-        }
-      };
-    });
-  };
-
-  const results = calculateResults();
-
-  // Trouver le max pour le graphique
-  const maxTCO = Math.max(...results.map(r => Math.max(r.leasing.tco, r.credit.tco, r.comptant.tco)), 1);
-
-  // Fonction pour mettre à jour le code partagé
   const updateSharedCode = (newCode) => {
     const cleanCode = newCode.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 8);
     setSharedCode(cleanCode);
     localStorage.setItem('comparateur_shared_code', cleanCode);
     setIsCodeValid(true);
-    setShowLoadButton(true); // Montrer le bouton de chargement
+    setShowLoadButton(true);
   };
 
-  // Fonction pour charger les données avec le code actuel
   const loadDataForCurrentCode = async () => {
-    // Feedback visuel immédiat
     setIsSaving(true);
     
     try {
@@ -780,11 +355,10 @@ const App = () => {
         if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
         if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
         setIsCodeValid(true);
-        setShowLoadButton(false); // Cacher le bouton après chargement
+        setShowLoadButton(false);
         
         alert(`✅ Données chargées depuis le serveur SQLite pour le code "${sharedCode}"`);
       } else {
-        // Aucune donnée trouvée pour ce code
         alert(`Aucune donnée trouvée pour le code "${sharedCode}".\n\nCréez d'abord des données avec ce code sur un autre appareil, ou utilisez un code existant.`);
       }
     } catch (error) {
@@ -796,12 +370,10 @@ const App = () => {
     }
   };
 
-  // Fonction pour copier le code dans le presse-papier
   const copyToClipboard = () => {
     navigator.clipboard.writeText(sharedCode);
   };
 
-  // Fonction pour ouvrir l'image en grand
   const openImageModal = (url, title) => {
     if (url && url.trim() !== '') {
       setModalImage({
@@ -812,7 +384,6 @@ const App = () => {
     }
   };
 
-  // Fonction pour fermer la modal
   const closeImageModal = () => {
     setModalImage({
       isOpen: false,
@@ -821,15 +392,16 @@ const App = () => {
     });
   };
 
+  // --- JSX ---
+  // Pour des raisons de concision, seul le JSX essentiel est inclus
+  // Le JSX complet sera copié dans l'étape suivante
   return (
     <div className="min-h-screen bg-slate-100 p-4 font-sans text-slate-800">
       <div className="max-w-7xl mx-auto">
         {/* Layout Dashboard à deux colonnes */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
           {/* Colonne GAUCHE (Édition) - 8/12 */}
           <div className="lg:col-span-8 space-y-6">
-            
             <header className="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
@@ -1417,7 +989,6 @@ const App = () => {
               
               <div className="space-y-4">
                 {(() => {
-                  // Créer un tableau plat avec toutes les données
                   const allData = [];
                   results.forEach(r => {
                     allData.push(
@@ -1445,34 +1016,30 @@ const App = () => {
                     );
                   });
                   
-                  // Trier par valeur croissante
                   allData.sort((a, b) => a.total - b.total);
-                  
-                  // Trouver la valeur max pour l'échelle avec marge de 5%
                   const maxValue = Math.max(...allData.map(d => d.breakdown.total), 1) * 1.05;
                   
-                  // Couleurs selon le type (5 catégories avec dégradation logique)
                   const colorSchemes = {
                     blue: {
-                      apportLisse: 'bg-blue-950',    // Nuance 950 (très sombre)
-                      banque: 'bg-blue-700',         // Nuance 700 (sombre)
-                      energie: 'bg-blue-500',        // Nuance 500 (moyen)
-                      fraisFixes: 'bg-blue-300',     // Nuance 300 (clair)
-                      opportunite: 'bg-blue-200'     // Nuance 200 (pastel)
+                      apportLisse: 'bg-blue-950',
+                      banque: 'bg-blue-700',
+                      energie: 'bg-blue-500',
+                      fraisFixes: 'bg-blue-300',
+                      opportunite: 'bg-blue-200'
                     },
                     emerald: {
-                      apportLisse: 'bg-emerald-950', // Nuance 950 (très sombre)
-                      banque: 'bg-emerald-700',      // Nuance 700 (sombre)
-                      energie: 'bg-emerald-500',     // Nuance 500 (moyen)
-                      fraisFixes: 'bg-emerald-300',  // Nuance 300 (clair)
-                      opportunite: 'bg-emerald-200'  // Nuance 200 (pastel)
+                      apportLisse: 'bg-emerald-950',
+                      banque: 'bg-emerald-700',
+                      energie: 'bg-emerald-500',
+                      fraisFixes: 'bg-emerald-300',
+                      opportunite: 'bg-emerald-200'
                     },
                     purple: {
-                      apportLisse: 'bg-purple-950',  // Nuance 950 (très sombre)
-                      banque: 'bg-purple-700',       // Nuance 700 (sombre)
-                      energie: 'bg-purple-500',      // Nuance 500 (moyen)
-                      fraisFixes: 'bg-purple-300',   // Nuance 300 (clair)
-                      opportunite: 'bg-purple-200'   // Nuance 200 (pastel)
+                      apportLisse: 'bg-purple-950',
+                      banque: 'bg-purple-700',
+                      energie: 'bg-purple-500',
+                      fraisFixes: 'bg-purple-300',
+                      opportunite: 'bg-purple-200'
                     }
                   };
 
@@ -1494,7 +1061,7 @@ const App = () => {
                           </span>
                         </div>
                         
-                        {/* Barre empilée - version compacte */}
+                        {/* Barre empilée */}
                         <div className="w-full h-4 bg-slate-100 rounded-full overflow-visible flex relative z-30">
                           {Object.keys(item.breakdown).filter(key => key !== 'total').map((key, catIndex) => {
                             const value = item.breakdown[key];
@@ -1502,7 +1069,6 @@ const App = () => {
                             
                             if (value <= 0) return null;
                             
-                            // Couleur selon la catégorie
                             let bgColor = '';
                             switch(key) {
                               case 'apportLisse': bgColor = colors.apportLisse; break;
