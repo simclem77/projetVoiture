@@ -123,7 +123,7 @@ const Tooltip = ({ children, content, position = 'top', width = '100%' }) => {
 };
 
 // Composant StackedBarChart pour les graphiques TCO empilés (5 catégories avec "Banque")
-const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
+const StackedBarChart = ({ breakdown, type, vehicleName, motorisation, maxValue }) => {
   const categories = [
     { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Coût net de l\'apport (après déduction de la valeur de revente)' },
     { key: 'banque', label: 'Banque', tooltip: 'Mensualité brute payée (flux réel sortant vers l\'organisme de financement)' },
@@ -158,6 +158,7 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
   };
 
   const colors = colorSchemes[type] || colorSchemes.leasing;
+  const effectiveMaxValue = maxValue || breakdown.total;
 
   return (
     <div className="space-y-2">
@@ -171,7 +172,7 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
       <div className="w-full h-6 bg-slate-100 rounded-full overflow-visible flex relative z-30">
         {categories.map((category, catIndex) => {
           const value = breakdown[category.key];
-          const percentage = (value / breakdown.total) * 100;
+          const percentage = (value / effectiveMaxValue) * 100;
           
           if (value <= 0) return null;
           
@@ -1322,18 +1323,21 @@ const App = () => {
                           type="leasing"
                           vehicleName={car.name}
                           motorisation={car.motorisation}
+                          maxValue={maxTCO}
                         />
                         <StackedBarChart 
                           breakdown={results[index].credit.breakdown}
                           type="credit"
                           vehicleName={car.name}
                           motorisation={car.motorisation}
+                          maxValue={maxTCO}
                         />
                         <StackedBarChart 
                           breakdown={results[index].comptant.breakdown}
                           type="comptant"
                           vehicleName={car.name}
                           motorisation={car.motorisation}
+                          maxValue={maxTCO}
                         />
                       </div>
                       
