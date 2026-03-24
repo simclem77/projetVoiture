@@ -807,13 +807,24 @@ const App = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[9px] font-bold text-slate-400 uppercase">Résiduelle</label>
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase">Résiduelle L.</label>
                           <NumericInput
-                            value={car.valeurResiduelle} 
+                            value={car.valeurResiduelle}
                             onChange={val => updateCar(index, 'valeurResiduelle', val)}
-                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors" 
+                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
                             placeholder="0.00"
                           />
+                        </div>
+                        <div>
+                          <Tooltip
+                            content="Valeur résiduelle calculée pour Crédit/Comptant (dépréciation long terme + risque Lausanne 2030)"
+                            position="top"
+                          >
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase cursor-help">Résiduelle C/C</label>
+                          </Tooltip>
+                          <div className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-100 text-slate-600">
+                            {results[index].valeurResiduelleReelle?.toFixed(0) || '0'} CHF
+                          </div>
                         </div>
                         
                         {/* Apports */}
