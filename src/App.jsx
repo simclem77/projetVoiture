@@ -1181,12 +1181,12 @@ const App = () => {
                   {/* CORPS DE LA CARTE - 3 COLONNES */}
                   <div className="flex flex-row">
                     
-                    {/* ZONE A - Identité (20%) */}
-                    <div className="w-1/5 p-4 bg-slate-50 border-r border-slate-200">
-                      {/* Prix d'achat TTC en très gros */}
+                    {/* ZONE A - Identité (15%) */}
+                    <div className="w-[15%] p-4 bg-slate-50 border-r border-slate-200">
+                      {/* Prix d'achat TTC en moins envahissant */}
                       <div className="text-center mb-4">
                         <div className="text-xs font-bold text-slate-500 uppercase mb-1">Prix TTC</div>
-                        <div className="font-black text-slate-900 text-3xl">{car.prixAchat.toFixed(0)} CHF</div>
+                        <div className="font-black text-slate-900 text-2xl">{car.prixAchat.toFixed(0)} CHF</div>
                       </div>
                       
                       {/* Bloc "Usage seul" */}
@@ -1209,9 +1209,9 @@ const App = () => {
                       </div>
                     </div>
 
-                    {/* ZONE B - Saisie (40%) */}
-                    <div className="w-2/5 p-4 bg-slate-50 border-r border-slate-200">
-                      <div className="grid grid-cols-2 gap-3">
+                    {/* ZONE B - Saisie (45%) */}
+                    <div className="w-[45%] p-4 bg-slate-50 border-r border-slate-200">
+                      <div className="grid grid-cols-3 gap-x-2 gap-y-1">
                         {/* Prix et valeur résiduelle */}
                         <div>
                           <label className="block text-[10px] font-bold text-slate-500 uppercase">Prix TTC</label>
@@ -1388,7 +1388,7 @@ const App = () => {
           <div className="lg:col-span-4 sticky top-6 space-y-4">
             
             {/* Bloc Comparaison des Coûts Mensuels */}
-            <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6 shadow-slate-200/50">
+            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-6 shadow-slate-800/10 border-t-4 border-t-indigo-600">
               <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-slate-800">
                 <BarChart3 className="w-6 h-6 text-indigo-500" /> 
                 Comparaison des Coûts Mensuels (Synthèse)
