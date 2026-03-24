@@ -815,14 +815,17 @@ const App = () => {
                             placeholder="0.00"
                           />
                         </div>
-                        <div>
-                          <Tooltip
-                            content="Valeur résiduelle calculée pour Crédit/Comptant (dépréciation long terme + risque Lausanne 2030)"
-                            position="top"
-                          >
-                            <label className="block text-[9px] font-bold text-slate-400 uppercase cursor-help">Résiduelle C/C</label>
-                          </Tooltip>
-                          <div className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 text-slate-700 flex items-center min-h-[42px]">
+                        <div className="flex flex-col justify-end">
+                          <div className="flex items-center gap-1 mb-[2px]">
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase">Résiduelle C/C</label>
+                            <Tooltip
+                              content="Valeur résiduelle calculée pour Crédit/Comptant (dépréciation long terme + risque Lausanne 2030)"
+                              position="top"
+                            >
+                              <Info className="w-3 h-3 text-slate-400 cursor-help" />
+                            </Tooltip>
+                          </div>
+                          <div className="w-full px-2 border border-slate-300 rounded-lg text-sm bg-slate-50 text-slate-700 flex items-center h-[38px]">
                             {results[index].valeurResiduelleReelle?.toFixed(0) || '0'} CHF
                           </div>
                         </div>
