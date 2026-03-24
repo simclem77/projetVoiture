@@ -822,7 +822,7 @@ const App = () => {
                           >
                             <label className="block text-[9px] font-bold text-slate-400 uppercase cursor-help">Résiduelle C/C</label>
                           </Tooltip>
-                          <div className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-100 text-slate-600">
+                          <div className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 text-slate-700 flex items-center min-h-[42px]">
                             {results[index].valeurResiduelleReelle?.toFixed(0) || '0'} CHF
                           </div>
                         </div>
