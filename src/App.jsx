@@ -1181,40 +1181,52 @@ const App = () => {
                   {/* CORPS DE LA CARTE - 3 COLONNES */}
                   <div className="flex flex-row">
                     
-                    {/* ZONE A - Identité (15%) */}
-                    <div className="w-[15%] p-4 bg-slate-50 border-r border-slate-200">
-                      {/* Prix d'achat TTC en moins envahissant */}
+                    {/* ZONE A - Identité & Usage (18%) */}
+                    <div className="w-[18%] p-4 bg-slate-50 border-r border-slate-200">
+                      {/* Photo */}
+                      {car.photoUrl && (
+                        <img 
+                          src={car.photoUrl} 
+                          className="w-full aspect-video object-cover rounded-lg mb-3 shadow-sm border border-slate-200 cursor-pointer" 
+                          onClick={() => openImageModal(car.photoUrl, car.name)} 
+                          alt={car.name}
+                        />
+                      )}
+                      
+                      {/* Prix TTC */}
                       <div className="text-center mb-4">
-                        <div className="text-xs font-bold text-slate-500 uppercase mb-1">Prix TTC</div>
-                        <div className="font-black text-slate-900 text-2xl">{car.prixAchat.toFixed(0)} CHF</div>
+                        <div className="text-[10px] text-slate-400 uppercase font-bold text-center">Prix TTC</div>
+                        <div className="font-black text-slate-900 text-2xl text-center">{car.prixAchat.toFixed(0)} CHF</div>
                       </div>
                       
-                      {/* Bloc "Usage seul" */}
-                      <div className="bg-white rounded-lg p-3 border border-slate-200 shadow-sm">
-                        <div className="text-xs font-bold text-slate-600 uppercase mb-1">Usage seul</div>
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <div className="text-xs text-slate-500">Énergie</div>
-                            <div className="font-bold text-slate-800">{results[index].coutEnergieMensuel.toFixed(0)} CHF</div>
+                      {/* Forfait Usage */}
+                      <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100">
+                        <div className="text-xs font-bold text-indigo-600 uppercase mb-2">Forfait Usage (moyenne mensuelle)</div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-slate-600">Énergie</span>
+                            <span className="font-bold text-slate-800">{results[index].coutEnergieMensuel.toFixed(0)} CHF</span>
                           </div>
-                          <div>
-                            <div className="text-xs text-slate-500">Frais fixes</div>
-                            <div className="font-bold text-slate-800">{(results[index].fraisUsage - results[index].coutEnergieMensuel).toFixed(0)} CHF</div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-slate-600">Frais fixes</span>
+                            <span className="font-bold text-slate-800">{(results[index].fraisUsage - results[index].coutEnergieMensuel).toFixed(0)} CHF</span>
                           </div>
-                        </div>
-                        <div className="mt-2 pt-2 border-t border-slate-100">
-                          <div className="text-xs text-slate-500">Total mensuel</div>
-                          <div className="font-bold text-lg text-slate-900">{results[index].fraisUsage.toFixed(0)} CHF</div>
+                          <div className="pt-2 border-t border-indigo-100">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-bold text-slate-900">Total Usage</span>
+                              <span className="text-lg font-bold text-slate-900">{results[index].fraisUsage.toFixed(0)} CHF</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* ZONE B - Saisie (45%) */}
-                    <div className="w-[45%] p-4 bg-slate-50 border-r border-slate-200">
-                      <div className="grid grid-cols-3 gap-x-2 gap-y-1">
+                    {/* ZONE B - Saisie (42%) */}
+                    <div className="w-[42%] p-4 bg-slate-50 border-r border-slate-200">
+                      <div className="grid grid-cols-3 gap-2">
                         {/* Prix et valeur résiduelle */}
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Prix TTC</label>
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase">Prix TTC</label>
                           <NumericInput
                             value={car.prixAchat}
                             onChange={val => updateCar(index, 'prixAchat', val)}
@@ -1223,7 +1235,7 @@ const App = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Résiduelle</label>
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase">Résiduelle</label>
                           <NumericInput
                             value={car.valeurResiduelle} 
                             onChange={val => updateCar(index, 'valeurResiduelle', val)}
@@ -1234,7 +1246,7 @@ const App = () => {
                         
                         {/* Apports */}
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Apport Leasing</label>
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase">Apport L.</label>
                           <NumericInput
                             value={car.apport}
                             onChange={val => updateCar(index, 'apport', val)}
@@ -1243,7 +1255,7 @@ const App = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Apport Crédit</label>
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase">Apport C.</label>
                           <NumericInput
                             value={car.apportCredit} 
                             onChange={val => updateCar(index, 'apportCredit', val)}
@@ -1254,7 +1266,7 @@ const App = () => {
                         
                         {/* Taux et risque */}
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Taux Leasing (%)</label>
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase">Taux L. (%)</label>
                           <NumericInput
                             value={car.tauxLeasing}
                             onChange={val => updateCar(index, 'tauxLeasing', val)}
@@ -1263,7 +1275,7 @@ const App = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-amber-600 uppercase">Risque (%)</label>
+                          <label className="block text-[9px] font-bold text-amber-600 uppercase">Risque (%)</label>
                           <NumericInput
                             value={car.risqueDepreciation} 
                             onChange={val => updateCar(index, 'risqueDepreciation', val)}
@@ -1274,7 +1286,7 @@ const App = () => {
                         
                         {/* Consommations */}
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Conso Élec (kWh)</label>
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase">Conso É. (kWh)</label>
                           <NumericInput
                             value={car.consoElec} 
                             onChange={val => updateCar(index, 'consoElec', val)}
@@ -1283,7 +1295,7 @@ const App = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Conso Essence (L)</label>
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase">Conso Ess. (L)</label>
                           <NumericInput
                             value={car.consoEssence} 
                             onChange={val => updateCar(index, 'consoEssence', val)}
@@ -1294,7 +1306,7 @@ const App = () => {
                         
                         {/* Frais fixes */}
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Assurance</label>
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase">Assurance</label>
                           <NumericInput
                             value={car.assurance} 
                             onChange={val => updateCar(index, 'assurance', val)}
@@ -1303,10 +1315,19 @@ const App = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Impôt</label>
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase">Impôt</label>
                           <NumericInput
                             value={car.impotCantonal} 
                             onChange={val => updateCar(index, 'impotCantonal', val)}
+                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors" 
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase">Entretien</label>
+                          <NumericInput
+                            value={car.entretien} 
+                            onChange={val => updateCar(index, 'entretien', val)}
                             className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors" 
                             placeholder="0.00"
                           />
