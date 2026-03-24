@@ -255,6 +255,7 @@ const App = () => {
 
   // --- PARAMÈTRES GLOBAUX ---
   const [dureeMois, setDureeMois] = useState(48);
+  const [dureeDetention, setDureeDetention] = useState(96); // 8 ans (96 mois) par défaut
   const [kmAnnuel, setKmAnnuel] = useState(15000);
   const [parking, setParking] = useState(0); 
   const [vignette, setVignette] = useState(40); 
@@ -625,20 +626,21 @@ const App = () => {
           break;
       }
 
-      // B. Coût d'Opportunité (Manque à gagner sur placement)
-      const opportuniteApportLeasingMensuel = (car.apport * tauxPlacement / 100) / 12;
-      const opportuniteApportCreditMensuel = (car.apportCredit * tauxPlacement / 100) / 12;
-      const opportuniteComptantMensuel = (car.prixAchat * tauxPlacement / 100) / 12;
+      // Valeur résiduelle réelle avec formule de dépréciation long terme
+      // PrixAchat * (0.85 ^ (dureeDetention / 12)) * (1 - risqueDepreciation / 100)
+      const depreciationFactor = Math.pow(0.85, dureeDetention / 12);
+      const valeurResiduelleReelle = car.prixAchat * depreciationFactor * (1 - car.risqueDepreciation / 100);
 
-      // Frais Fixes
-      const coutFixeMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking;
-      const coutVariableMensuel = coutEnergieMensuel + (car.entretien / 12);
-      const fraisUsage = coutFixeMensuel + coutVariableMensuel;
+      // Bonus d'entretien de +20% si durée détention > 60 mois
+      const entretienMensuel = car.entretien / 12;
+      const entretienAjuste = dureeDetention > 60 ? entretienMensuel * 1.2 : entretienMensuel;
 
-      // Valeur résiduelle réelle avec risque de dépréciation
-      const valeurResiduelleReelle = car.valeurResiduelle * (1 - car.risqueDepreciation / 100);
+      // Frais Fixes mensuels
+      const fraisFixesMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking + entretienAjuste;
 
-      // 1. LEASING
+      // Calculs de base pour chaque mode de financement
+      
+      // 1. LEASING (durée fixe = dureeMois)
       const capitalFinanceLeasing = car.prixAchat - car.apport;
       const rLeasing = (car.tauxLeasing / 100) / 12;
       let pmtLeasing = 0;
@@ -649,10 +651,8 @@ const App = () => {
       } else {
         pmtLeasing = (capitalFinanceLeasing - car.valeurResiduelle) / dureeMois;
       }
-      const coutVehiculeLisseLeasing = (car.apport + (pmtLeasing * dureeMois)) / dureeMois;
-      const tcoLeasing = coutVehiculeLisseLeasing + fraisUsage + opportuniteApportLeasingMensuel;
 
-      // 2. CRÉDIT (avec apportCredit spécifique, risque de dépréciation et coût d'opportunité)
+      // 2. CRÉDIT (durée du crédit = dureeMois, détention = dureeDetention)
       const capitalFinanceCredit = car.prixAchat - car.apportCredit;
       const rCredit = (tauxCreditGlobal / 100) / 12;
       let pmtCredit = 0;
@@ -661,63 +661,72 @@ const App = () => {
       } else {
         pmtCredit = capitalFinanceCredit / dureeMois;
       }
-      // Amortissement net avec risque de dépréciation (comme pour le comptant)
-      const coutVehiculeLisseCredit = (car.apportCredit + (pmtCredit * dureeMois) - valeurResiduelleReelle) / dureeMois;
-      const tcoCredit = coutVehiculeLisseCredit + fraisUsage + opportuniteApportCreditMensuel;
 
-      // 3. COMPTANT avec risque de dépréciation
-      const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
-      const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
-
-      // TCO 5 Piliers : Flux Banque & Apport Lissé Brut
-      const fraisFixesMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking + (car.entretien / 12);
+      // Calcul des 5 piliers selon les nouvelles formules
       
-      // Mode LEASING : apportLisse = max(0, apport / durée), banque = pmt (flux réel)
+      // Pilier 1: Banque
+      const banqueLeasing = pmtLeasing; // Mensualité brute
+      const banqueCredit = (pmtCredit * dureeMois) / dureeDetention; // Lissé sur la durée de détention
+      const banqueComptant = 0;
+
+      // Pilier 2: Apport Lissé
       const apportLisseLeasing = Math.max(0, car.apport / dureeMois);
-      const banqueLeasing = pmtLeasing;
+      const apportLisseCredit = Math.max(0, (car.apportCredit - valeurResiduelleReelle) / dureeDetention);
+      const apportLisseComptant = Math.max(0, (car.prixAchat - valeurResiduelleReelle) / dureeDetention);
+
+      // Pilier 3: Énergie
+      const energie = coutEnergieMensuel;
+
+      // Pilier 4: Frais Fixes
+      const fraisFixes = fraisFixesMensuel;
+
+      // Pilier 5: Opportunité (Coût d'opportunité sur capital immobilisé)
+      const capitalImmobiliseLeasing = car.apport;
+      const capitalImmobiliseCredit = car.apportCredit;
+      const capitalImmobiliseComptant = car.prixAchat;
       
+      const opportuniteLeasing = (capitalImmobiliseLeasing * tauxPlacement / 100) / 12;
+      const opportuniteCredit = (capitalImmobiliseCredit * tauxPlacement / 100) / 12;
+      const opportuniteComptant = (capitalImmobiliseComptant * tauxPlacement / 100) / 12;
+
+      // TCO total (moyenne mensuelle sur la durée de détention)
+      const tcoLeasing = apportLisseLeasing + banqueLeasing + energie + fraisFixes + opportuniteLeasing;
+      const tcoCredit = apportLisseCredit + banqueCredit + energie + fraisFixes + opportuniteCredit;
+      const tcoComptant = apportLisseComptant + banqueComptant + energie + fraisFixes + opportuniteComptant;
+
+      // Breakdown pour les graphiques
       const breakdownLeasing = {
         apportLisse: apportLisseLeasing,
         banque: banqueLeasing,
-        energie: coutEnergieMensuel,
-        fraisFixes: fraisFixesMensuel,
-        opportunite: opportuniteApportLeasingMensuel,
+        energie: energie,
+        fraisFixes: fraisFixes,
+        opportunite: opportuniteLeasing,
         total: tcoLeasing
       };
 
-      // Mode CRÉDIT : apportLisse = max(0, apportCredit / durée), banque = pmt - (valeurRésiduelle / durée)
-      const apportLisseCredit = Math.max(0, car.apportCredit / dureeMois);
-      const banqueCredit = pmtCredit - (valeurResiduelleReelle / dureeMois);
-      
       const breakdownCredit = {
         apportLisse: apportLisseCredit,
-        banque: Math.max(0, banqueCredit), // Éviter les valeurs négatives
-        energie: coutEnergieMensuel,
-        fraisFixes: fraisFixesMensuel,
-        opportunite: opportuniteApportCreditMensuel,
+        banque: banqueCredit,
+        energie: energie,
+        fraisFixes: fraisFixes,
+        opportunite: opportuniteCredit,
         total: tcoCredit
       };
 
-      // Mode COMPTANT : apportLisse = max(0, dépréciation totale / durée), banque = 0
-      const depreciationTotale = car.prixAchat - valeurResiduelleReelle;
-      const apportLisseComptant = Math.max(0, depreciationTotale / dureeMois);
-      
       const breakdownComptant = {
         apportLisse: apportLisseComptant,
-        banque: 0,
-        energie: coutEnergieMensuel,
-        fraisFixes: fraisFixesMensuel,
-        opportunite: opportuniteComptantMensuel,
+        banque: banqueComptant,
+        energie: energie,
+        fraisFixes: fraisFixes,
+        opportunite: opportuniteComptant,
         total: tcoComptant
       };
 
       return {
         ...car,
-        fraisUsage,
-        coutEnergieMensuel,
-        opportuniteApportLeasingMensuel,
-        opportuniteApportCreditMensuel,
-        opportuniteComptantMensuel,
+        coutEnergieMensuel: energie,
+        fraisFixesMensuel: fraisFixes,
+        fraisUsage: energie + fraisFixes,
         valeurResiduelleReelle,
         leasing: {
           pmt: pmtLeasing > 0 ? pmtLeasing : 0,
@@ -1088,6 +1097,30 @@ const App = () => {
                   </div>
                 </div>
               </div>
+              
+              {/* Slider pour la durée de détention */}
+              <div className="mt-6 pt-4 border-t border-slate-200">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Durée de détention (pour Crédit/Comptant) : <span className="font-bold text-indigo-700">{dureeDetention} mois</span> ({Math.floor(dureeDetention/12)} ans)
+                </label>
+                <div className="flex items-center gap-4">
+                  <span className="text-xs text-slate-500 w-12">48 mois</span>
+                  <input
+                    type="range"
+                    min="48"
+                    max="120"
+                    step="12"
+                    value={dureeDetention}
+                    onChange={(e) => setDureeDetention(parseInt(e.target.value))}
+                    className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-600"
+                  />
+                  <span className="text-xs text-slate-500 w-16">120 mois</span>
+                </div>
+                <div className="mt-2 text-xs text-slate-500">
+                  Cette durée s'applique au <strong>Crédit</strong> et au <strong>Comptant</strong> pour calculer la dépréciation long terme. Le <strong>Leasing</strong> utilise la durée fixe du contrat ({dureeMois} mois).
+                </div>
+              </div>
+              
               <div className="mt-4 text-xs text-slate-500">
                 <span className="font-medium">Coût d'opportunité :</span> Le taux de placement représente le rendement annuel que vous pourriez obtenir en investissant votre argent plutôt que de l'utiliser pour acheter un véhicule. Ce coût est inclus dans le TCO.
               </div>
