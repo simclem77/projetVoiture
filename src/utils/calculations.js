@@ -35,23 +35,26 @@ export const calculerValeurResiduelleReelle = (prixAchat, dureeDetentionMois, km
   return Math.max(0, Math.round(valeurFinale));
 };
 
-// 2. FONCTION UTILITAIRE : Valeur actuelle d'une annuité de début de période
-const valeurActuelleAnnuiteDebut = (montantMensuel, tauxMensuel, nbMois) => {
-  if (tauxMensuel === 0) {
-    return montantMensuel * nbMois;
-  }
-  const facteur = Math.pow(1 + tauxMensuel, -nbMois);
-  return montantMensuel * (1 - facteur) / tauxMensuel * (1 + tauxMensuel);
-};
-
-// 3. MOTEUR PRINCIPAL : Calcul des TCO et ventilation pour les graphiques
+// 2. MOTEUR PRINCIPAL : Calcul des TCO et ventilation pour les graphiques
 export const calculateResults = (cars, settings) => {
+  
+  // Fonction financière universelle (Équivalent de VPM/PMT dans Excel)
+  const PMT = (rate, nper, pv, fv = 0, type = 0) => {
+    if (rate === 0) return -(pv + fv) / nper;
+    const pvif = Math.pow(1 + rate, nper);
+    let pmt = rate / (pvif - 1) * -(pv * pvif + fv);
+    // type === 1 signifie paiement en début de mois
+    if (type === 1) pmt /= (1 + rate);
+    return pmt;
+  };
+
   return cars.map(car => {
-    // --- A. CALCUL DES TAUX D'ACTUALISATION ---
-    // Taux d'inflation mensuel (pour actualiser les flux futurs)
-    const tauxInflationMensuel = (settings.inflationAnnuelle / 100) / 12;
-    
-    // --- B. FRAIS D'USAGE (Communs aux 3 modes) ---
+    const Inf = settings.inflationAnnuelle / 100;
+    const T_Plac = settings.tauxPlacement / 100;
+    const N = settings.dureeMois;
+    const N_detention = settings.dureeDetention;
+
+    // --- A. FRAIS D'USAGE (Communs aux 3 modes) ---
     const kmMensuel = settings.kmAnnuel / 12;
     let coutEnergieMensuel = 0;
 
@@ -61,70 +64,49 @@ export const calculateResults = (cars, settings) => {
       coutEnergieMensuel = (kmMensuel / 100) * car.consoElec * settings.prixElec;
     } else if (car.motorisation === 'PHEV') {
       const partElec = settings.ratioElec / 100;
-      const partEssence = 1 - partElec;
       const coutElec = (kmMensuel * partElec / 100) * car.consoElec * settings.prixElec;
-      const coutEssence = (kmMensuel * partEssence / 100) * car.consoEssence * settings.prixEssence;
+      const coutEssence = (kmMensuel * (1 - partElec) / 100) * car.consoEssence * settings.prixEssence;
       coutEnergieMensuel = coutElec + coutEssence;
     }
 
-    const fraisFixesMensuels = (car.assurance / 12) + 
-                               (car.impotCantonal / 12) + 
-                               (car.entretien / 12) + 
-                               settings.parking + 
-                               (settings.vignette / 12);
-                               
+    const fraisFixesMensuels = (car.assurance / 12) + (car.impotCantonal / 12) + (car.entretien / 12) + settings.parking + (settings.vignette / 12);
     const fraisUsage = coutEnergieMensuel + fraisFixesMensuels;
 
-    // --- C. VALEUR RÉSIDUELLE RÉELLE ---
+    // --- B. VALEUR RÉSIDUELLE RÉELLE ---
     const valeurResiduelleReelle = calculerValeurResiduelleReelle(
-      car.prixAchat, 
-      settings.dureeDetention, 
-      settings.kmAnnuel, 
-      car.motorisation, 
-      car.risqueDepreciation
+      car.prixAchat, settings.dureeDetention, settings.kmAnnuel, car.motorisation, car.risqueDepreciation
     );
 
-    // --- D. LEASING (Dette fixe - impact de l'inflation) ---
-    const montantFinanceLeasing = car.prixAchat - car.apport - car.valeurResiduelle;
-    const interetsLeasingMensuels = ((car.prixAchat - car.apport + car.valeurResiduelle) / 2) * (car.tauxLeasing / 100 / 12);
-    const mensualiteLeasingBrute = (montantFinanceLeasing / settings.dureeMois) + interetsLeasingMensuels;
+    // --- C. LEASING ---
+    const T_L_nom = car.tauxLeasing / 100;
+    const T_L_real_m = (T_L_nom - Inf) / 12; // Autorise les taux négatifs
+    const PV_L = car.prixAchat - car.apport;
     
-    // Actualisation de la mensualité de leasing avec l'inflation
-    // L'inflation réduit la valeur réelle des paiements futurs (dette fixe)
-    const valeurActuelleLeasing = valeurActuelleAnnuiteDebut(mensualiteLeasingBrute, tauxInflationMensuel, settings.dureeMois);
-    const mensualiteLeasingActualisee = valeurActuelleLeasing / settings.dureeMois;
-    
-    const apportLisseLeasing = car.apport / settings.dureeMois;
-    const opportuniteLeasing = (car.apport * (settings.tauxPlacement / 100)) / 12;
-    const tcoLeasing = mensualiteLeasingActualisee + apportLisseLeasing + fraisUsage + opportuniteLeasing;
+    // Utilisation de la vraie fonction PMT en début de période (1)
+    const mensualiteLeasingActualisee = -PMT(T_L_real_m, N, PV_L, -car.valeurResiduelle, 1);
+    const apportLisseLeasing = car.apport / N;
+    const opportuniteLeasing = (car.apport * T_Plac) / 12;
+    const tcoLeasing = mensualiteLeasingActualisee + apportLisseLeasing + opportuniteLeasing + fraisUsage;
 
-    // --- E. CRÉDIT (Dette fixe - approche par taux d'intérêt réel) ---
-    const montantEmprunte = car.prixAchat - car.apportCredit;
-    const tauxMensuelCredit = settings.tauxCreditGlobal / 100 / 12;
+    // --- D. CRÉDIT ---
+    const T_C_nom = settings.tauxCreditGlobal / 100;
+    const T_C_real_m = (T_C_nom - Inf) / 12; // Autorise les taux négatifs
+    const PV_C = car.prixAchat - car.apportCredit;
+
+    const mensualiteCreditReelle = -PMT(T_C_real_m, N, PV_C, 0, 1);
+    // Pour le crédit, la banque gagne l'amortissement + les intérêts réels
+    const interetsCreditMensuelsReels = mensualiteCreditReelle - (PV_C / N);
+    const perteValeurCreditMensuelle = (car.prixAchat - valeurResiduelleReelle) / N_detention;
+    const opportuniteCredit = (car.apportCredit * T_Plac) / 12;
     
-    // Taux d'intérêt réel (nominal - inflation) pour refléter le coût réel de la dette
-    const tauxInteretReelMensuel = Math.max(0, tauxMensuelCredit - tauxInflationMensuel);
-    
-    // Calcul de la mensualité basée sur le taux d'intérêt réel
-    const mensualiteCreditReelle = (tauxInteretReelMensuel === 0) 
-        ? (montantEmprunte / settings.dureeMois)
-        : montantEmprunte * (tauxInteretReelMensuel * Math.pow(1 + tauxInteretReelMensuel, settings.dureeMois)) / (Math.pow(1 + tauxInteretReelMensuel, settings.dureeMois) - 1);
-    
-    // Pour le crédit, le vrai coût n'est pas la mensualité (qui inclut du capital qui vous appartient), 
-    // mais la PERTE de valeur de la voiture + les intérêts réels payés à la banque.
-    const perteValeurCreditMensuelle = (car.prixAchat - valeurResiduelleReelle) / settings.dureeDetention;
-    const interetsCreditMensuelsReels = mensualiteCreditReelle - (montantEmprunte / settings.dureeMois);
-    
-    const opportuniteCredit = (car.apportCredit * (settings.tauxPlacement / 100)) / 12;
     const tcoCredit = perteValeurCreditMensuelle + interetsCreditMensuelsReels + opportuniteCredit + fraisUsage;
 
-    // --- F. COMPTANT (Décaissement immédiat - pas d'impact inflation) ---
-    const perteValeurComptantMensuelle = (car.prixAchat - valeurResiduelleReelle) / settings.dureeDetention;
-    // L'argent bloqué dans la voiture ne rapporte plus rien : on l'applique sur la totalité du prix
-    const opportuniteComptant = (car.prixAchat * (settings.tauxPlacement / 100)) / 12;
+    // --- E. COMPTANT ---
+    const perteValeurComptantMensuelle = (car.prixAchat - valeurResiduelleReelle) / N_detention;
+    const opportuniteComptant = (car.prixAchat * T_Plac) / 12;
     const tcoComptant = perteValeurComptantMensuelle + opportuniteComptant + fraisUsage;
 
-    // --- G. RETOUR DES DONNÉES STRUCTURÉES POUR L'UI ---
+    // --- F. RETOUR ---
     return {
       name: car.name,
       coutEnergieMensuel,
@@ -137,7 +119,7 @@ export const calculateResults = (cars, settings) => {
           banque: Math.max(0, mensualiteLeasingActualisee),
           energie: coutEnergieMensuel,
           fraisFixes: fraisFixesMensuels,
-          opportunite: opportuniteLeasing,
+          opportunite: Math.max(0, opportuniteLeasing),
           total: Math.max(0, tcoLeasing)
         }
       },
@@ -148,7 +130,7 @@ export const calculateResults = (cars, settings) => {
           banque: Math.max(0, perteValeurCreditMensuelle + interetsCreditMensuelsReels),
           energie: coutEnergieMensuel,
           fraisFixes: fraisFixesMensuels,
-          opportunite: opportuniteCredit,
+          opportunite: Math.max(0, opportuniteCredit),
           total: Math.max(0, tcoCredit)
         }
       },
@@ -159,7 +141,7 @@ export const calculateResults = (cars, settings) => {
           banque: Math.max(0, perteValeurComptantMensuelle),
           energie: coutEnergieMensuel,
           fraisFixes: fraisFixesMensuels,
-          opportunite: opportuniteComptant,
+          opportunite: Math.max(0, opportuniteComptant),
           total: Math.max(0, tcoComptant)
         }
       }
