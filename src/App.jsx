@@ -1172,21 +1172,22 @@ const App = () => {
                   const colorSchemes = {
                     blue: {
                       apportLisse: 'bg-blue-950',
-                      banque: 'bg-blue-700',
+                      loyer: 'bg-blue-700',
                       energie: 'bg-blue-500',
                       fraisFixes: 'bg-blue-300',
                       opportunite: 'bg-blue-200'
                     },
                     emerald: {
                       apportLisse: 'bg-emerald-950',
-                      banque: 'bg-emerald-700',
+                      depreciation: 'bg-emerald-700',
+                      interets: 'bg-emerald-600',
                       energie: 'bg-emerald-500',
                       fraisFixes: 'bg-emerald-300',
                       opportunite: 'bg-emerald-200'
                     },
                     purple: {
                       apportLisse: 'bg-purple-950',
-                      banque: 'bg-purple-700',
+                      depreciation: 'bg-purple-700',
                       energie: 'bg-purple-500',
                       fraisFixes: 'bg-purple-300',
                       opportunite: 'bg-purple-200'
@@ -1229,7 +1230,9 @@ const App = () => {
                             let bgColor = '';
                             switch(key) {
                               case 'apportLisse': bgColor = colors.apportLisse; break;
-                              case 'banque': bgColor = colors.banque; break;
+                              case 'loyer': bgColor = colors.loyer; break;
+                              case 'depreciation': bgColor = colors.depreciation; break;
+                              case 'interets': bgColor = colors.interets; break;
                               case 'energie': bgColor = colors.energie; break;
                               case 'fraisFixes': bgColor = colors.fraisFixes; break;
                               case 'opportunite': bgColor = colors.opportunite; break;
@@ -1240,7 +1243,9 @@ const App = () => {
                               <Tooltip
                                 key={`${index}-${key}`}
                                 content={`${key === 'apportLisse' ? 'Apport Lissé' :
-                                          key === 'banque' ? getBanqueLabel(item.type) :
+                                          key === 'loyer' ? 'Loyer' :
+                                          key === 'depreciation' ? 'Dépréciation' :
+                                          key === 'interets' ? 'Intérêts' :
                                           key === 'energie' ? 'Énergie' :
                                           key === 'fraisFixes' ? 'Frais Fixes' : 'Opportunité'}: ${value.toFixed(0)} CHF`}
                                 position="top"
@@ -1273,10 +1278,24 @@ const App = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-slate-700 rounded"></div>
-                    <span className="text-sm text-slate-700">Financement/Dépréciation</span>
+                    <div className="w-4 h-4 bg-blue-700 rounded"></div>
+                    <span className="text-sm text-slate-700">Loyer (Leasing)</span>
                   </div>
-                  <span className="text-xs text-slate-500">Loyer (Leasing), Dépréciation+Intérêts (Crédit), Dépréciation (Comptant)</span>
+                  <span className="text-xs text-slate-500">Mensualité versée à l'organisme de financement</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-emerald-700 rounded"></div>
+                    <span className="text-sm text-slate-700">Dépréciation (Perte de valeur)</span>
+                  </div>
+                  <span className="text-xs text-slate-500">Perte de valeur mensuelle du véhicule sur le marché</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-emerald-600 rounded"></div>
+                    <span className="text-sm text-slate-700">Intérêts bancaires</span>
+                  </div>
+                  <span className="text-xs text-slate-500">Frais financiers perçus par la banque</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

@@ -5,29 +5,11 @@ import Tooltip from './Tooltip';
  * Composant StackedBarChart pour les graphiques TCO empilés (5 catégories avec "Banque")
  */
 const StackedBarChart = ({ breakdown, type, vehicleName, motorisation, maxValue }) => {
-  // Fonction pour déterminer le label "Banque" selon le type de financement
-  const getBanqueLabel = (type) => {
-    switch(type) {
-      case 'leasing': return 'Loyer';
-      case 'credit': return 'Dépréciation + Intérêts';
-      case 'comptant': return 'Dépréciation';
-      default: return 'Banque';
-    }
-  };
-
-  // Fonction pour déterminer le tooltip "Banque" selon le type de financement
-  const getBanqueTooltip = (type) => {
-    switch(type) {
-      case 'leasing': return 'Loyer mensuel payé à la banque (financement de l\'utilisation)';
-      case 'credit': return 'Coût mensuel de la dépréciation du véhicule + intérêts du crédit';
-      case 'comptant': return 'Coût mensuel de la dépréciation du véhicule (perte de valeur)';
-      default: return 'Mensualité brute payée (flux réel sortant vers l\'organisme de financement)';
-    }
-  };
-
   const categories = [
     { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Coût net de l\'apport (après déduction de la valeur de revente)' },
-    { key: 'banque', label: getBanqueLabel(type), tooltip: getBanqueTooltip(type) },
+    { key: 'loyer', label: 'Loyer', tooltip: 'Mensualité versée à l\'organisme de financement' },
+    { key: 'depreciation', label: 'Dépréciation', tooltip: 'Perte de valeur mensuelle du véhicule sur le marché' },
+    { key: 'interets', label: 'Intérêts', tooltip: 'Frais financiers perçus par la banque' },
     { key: 'energie', label: 'Énergie', tooltip: motorisation === 'ICE' ? 'Essence uniquement' : motorisation === 'BEV' ? 'Électricité uniquement' : 'Mix PHEV (électricité + essence)' },
     { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt + Vignette + Parking + Entretien' },
     { key: 'opportunite', label: 'Opportunité', tooltip: 'Gain manqué sur le placement' }
@@ -37,21 +19,22 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation, maxValue 
   const colorSchemes = {
     leasing: {
       apportLisse: 'bg-blue-950',    // Nuance 950 (très sombre)
-      banque: 'bg-blue-700',         // Nuance 700 (sombre)
+      loyer: 'bg-blue-700',         // Nuance 700 (sombre)
       energie: 'bg-blue-500',        // Nuance 500 (moyen)
       fraisFixes: 'bg-blue-300',     // Nuance 300 (clair)
       opportunite: 'bg-blue-200'     // Nuance 200 (pastel)
     },
     credit: {
       apportLisse: 'bg-emerald-950', // Nuance 950 (très sombre)
-      banque: 'bg-emerald-700',      // Nuance 700 (sombre)
+      depreciation: 'bg-emerald-700',      // Nuance 700 (sombre)
+      interets: 'bg-emerald-600', // Nouvelle couleur
       energie: 'bg-emerald-500',     // Nuance 500 (moyen)
       fraisFixes: 'bg-emerald-300',  // Nuance 300 (clair)
       opportunite: 'bg-emerald-200'  // Nuance 200 (pastel)
     },
     comptant: {
       apportLisse: 'bg-purple-950',  // Nuance 950 (très sombre)
-      banque: 'bg-purple-700',       // Nuance 700 (sombre)
+      depreciation: 'bg-purple-700',       // Nuance 700 (sombre)
       energie: 'bg-purple-500',      // Nuance 500 (moyen)
       fraisFixes: 'bg-purple-300',   // Nuance 300 (clair)
       opportunite: 'bg-purple-200'   // Nuance 200 (pastel)

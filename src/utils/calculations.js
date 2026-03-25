@@ -105,7 +105,8 @@ export const calculateResults = (cars, settings) => {
     const mensualiteCreditBrute = -PMT(T_C_nom_m, N, PV_C, 0, 1);
     
     // Pour le crédit, la banque gagne l'amortissement + les intérêts réels
-    const interetsCreditMensuelsReels = mensualiteCreditReelle - (PV_C / N);
+      const interetsCreditMensuelsReels = mensualiteCreditReelle - (PV_C / N);
+    const interetsCreditMensuelsBruts = mensualiteCreditBrute - (PV_C / N);
     const perteValeurCreditMensuelle = (car.prixAchat - valeurResiduelleReelle) / N_detention;
     const opportuniteCredit = (car.apportCredit * T_Plac) / 12;
     
@@ -132,7 +133,7 @@ export const calculateResults = (cars, settings) => {
         mensualiteBrute: Math.max(0, mensualiteLeasingBrute),
         breakdown: {
           apportLisse: Math.max(0, apportLisseLeasing),
-          banque: Math.max(0, mensualiteLeasingActualisee),
+          loyer: Math.max(0, mensualiteLeasingBrute),
           energie: coutEnergieMensuel,
           fraisFixes: fraisFixesMensuels,
           opportunite: Math.max(0, opportuniteLeasing),
@@ -145,7 +146,8 @@ export const calculateResults = (cars, settings) => {
         mensualiteBrute: Math.max(0, mensualiteCreditBrute),
         breakdown: {
           apportLisse: 0, 
-          banque: Math.max(0, perteValeurCreditMensuelle + interetsCreditMensuelsReels),
+          depreciation: Math.max(0, perteValeurCreditMensuelle),
+          interets: Math.max(0, interetsCreditMensuelsBruts),
           energie: coutEnergieMensuel,
           fraisFixes: fraisFixesMensuels,
           opportunite: Math.max(0, opportuniteCredit),
@@ -157,7 +159,7 @@ export const calculateResults = (cars, settings) => {
         tresorerieMensuelle: Math.max(0, tresorerieComptant),
         breakdown: {
           apportLisse: 0,
-          banque: Math.max(0, perteValeurComptantMensuelle),
+          depreciation: Math.max(0, perteValeurComptantMensuelle),
           energie: coutEnergieMensuel,
           fraisFixes: fraisFixesMensuels,
           opportunite: Math.max(0, opportuniteComptant),
