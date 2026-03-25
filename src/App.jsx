@@ -200,6 +200,10 @@ const App = () => {
           if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
           if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
           if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
+          if (data.dureeDetention !== undefined) setDureeDetention(parseDecimal(data.dureeDetention));
+          if (data.prixEssence !== undefined) setPrixEssence(parseDecimal(data.prixEssence));
+          if (data.prixElec !== undefined) setPrixElec(parseDecimal(data.prixElec));
+          if (data.ratioElec !== undefined) setRatioElec(parseDecimal(data.ratioElec));
           if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
           setIsCodeValid(true);
           console.log('✅ Données chargées depuis l\'API SQLite');
@@ -209,27 +213,31 @@ const App = () => {
         console.warn('⚠️ API non disponible, fallback localStorage:', error.message);
       }
       
-      const savedData = localStorage.getItem(`comparateur_${sharedCode}`);
-      if (savedData) {
-        try {
-          const data = JSON.parse(savedData);
-          if (data.cars) setCars(data.cars);
-          if (data.dureeMois) setDureeMois(data.dureeMois);
-          if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
-          if (data.parking !== undefined) setParking(data.parking);
-          if (data.vignette !== undefined) setVignette(data.vignette);
-          if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
-          if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
-          if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
-          if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
-          setIsCodeValid(true);
-          console.log('📦 Données chargées depuis localStorage');
-        } catch (error) {
-          console.warn("❌ Erreur de chargement localStorage:", error);
+        const savedData = localStorage.getItem(`comparateur_${sharedCode}`);
+        if (savedData) {
+          try {
+            const data = JSON.parse(savedData);
+            if (data.cars) setCars(data.cars);
+            if (data.dureeMois) setDureeMois(data.dureeMois);
+            if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
+            if (data.parking !== undefined) setParking(data.parking);
+            if (data.vignette !== undefined) setVignette(data.vignette);
+            if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
+            if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
+            if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
+            if (data.dureeDetention !== undefined) setDureeDetention(parseDecimal(data.dureeDetention));
+            if (data.prixEssence !== undefined) setPrixEssence(parseDecimal(data.prixEssence));
+            if (data.prixElec !== undefined) setPrixElec(parseDecimal(data.prixElec));
+            if (data.ratioElec !== undefined) setRatioElec(parseDecimal(data.ratioElec));
+            if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
+            setIsCodeValid(true);
+            console.log('📦 Données chargées depuis localStorage');
+          } catch (error) {
+            console.warn("❌ Erreur de chargement localStorage:", error);
+          }
+        } else {
+          console.log('ℹ️ Aucune donnée trouvée, utilisation des valeurs par défaut');
         }
-      } else {
-        console.log('ℹ️ Aucune donnée trouvée, utilisation des valeurs par défaut');
-      }
     };
     
     loadInitialData();
@@ -240,12 +248,16 @@ const App = () => {
       const data = {
         cars,
         dureeMois,
+        dureeDetention,
         kmAnnuel,
         parking,
         vignette,
         tauxCreditGlobal,
         inflationAnnuelle,
         tauxPlacement,
+        prixEssence,
+        prixElec,
+        ratioElec,
         sharedCode,
         updatedAt: new Date().toISOString()
       };
@@ -265,7 +277,7 @@ const App = () => {
     }, 2000);
 
     return () => clearTimeout(saveTimeout);
-  }, [cars, dureeMois, kmAnnuel, parking, vignette, tauxCreditGlobal, inflationAnnuelle, tauxPlacement, sharedCode]);
+  }, [cars, dureeMois, dureeDetention, kmAnnuel, parking, vignette, tauxCreditGlobal, inflationAnnuelle, tauxPlacement, prixEssence, prixElec, ratioElec, sharedCode]);
 
   useEffect(() => {
     checkHealth().then(healthy => {
@@ -297,12 +309,16 @@ const App = () => {
     const data = {
       cars,
       dureeMois,
+      dureeDetention,
       kmAnnuel,
       parking,
       vignette,
       tauxCreditGlobal,
       inflationAnnuelle,
       tauxPlacement,
+      prixEssence,
+      prixElec,
+      ratioElec,
       sharedCode,
       updatedAt: new Date().toISOString()
     };
@@ -356,6 +372,10 @@ const App = () => {
         if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
         if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
         if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
+        if (data.dureeDetention !== undefined) setDureeDetention(parseDecimal(data.dureeDetention));
+        if (data.prixEssence !== undefined) setPrixEssence(parseDecimal(data.prixEssence));
+        if (data.prixElec !== undefined) setPrixElec(parseDecimal(data.prixElec));
+        if (data.ratioElec !== undefined) setRatioElec(parseDecimal(data.ratioElec));
         if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
         setIsCodeValid(true);
         setShowLoadButton(false);
