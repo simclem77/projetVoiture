@@ -58,12 +58,12 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation, maxValue 
           const value = breakdown[category.key];
           const percentage = (value / effectiveMaxValue) * 100;
           
-          if (value <= 0) return null;
+          if (!value || value <= 0) return null;
           
           // Trouver le premier et dernier segment visible
-          const visibleCategories = categories.filter(cat => breakdown[cat.key] > 0);
-          const isFirstVisible = catIndex === categories.findIndex(cat => breakdown[cat.key] > 0);
-          const isLastVisible = catIndex === categories.findLastIndex(cat => breakdown[cat.key] > 0);
+          const visibleIndices = categories.map((cat, i) => breakdown[cat.key] > 0 ? i : -1).filter(i => i !== -1);
+          const isFirstVisible = catIndex === visibleIndices[0];
+          const isLastVisible = catIndex === visibleIndices[visibleIndices.length - 1];
           
           let roundedClasses = '';
           if (isFirstVisible) roundedClasses += ' rounded-l-full';
@@ -90,7 +90,7 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation, maxValue 
       <div className="flex flex-wrap gap-1.5 text-[10px]">
         {categories.map(category => {
           const value = breakdown[category.key];
-          if (value <= 0) return null;
+          if (!value || value <= 0) return null;
           
           return (
             <Tooltip
