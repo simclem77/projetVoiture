@@ -63,11 +63,11 @@ const StackedBarChart = ({ breakdown, type, vehicleName, motorisation, maxValue 
 
   return (
     <div className="space-y-2">
-      <div className="flex justify-between items-center text-xs">
-        <span className="font-medium text-slate-700">
+      <div className="flex justify-between items-center">
+        <span className="font-medium text-slate-700 text-sm">
           {type === 'leasing' ? 'Leasing' : type === 'credit' ? 'Crédit' : 'Comptant'}
         </span>
-        <span className="font-bold text-slate-800">{breakdown.total.toFixed(0)} CHF</span>
+        <span className="font-black text-slate-900 text-xl">{breakdown.total.toFixed(0)} CHF</span>
       </div>
       
       <div className="w-full h-6 bg-slate-100 rounded-full overflow-visible flex relative z-30">
