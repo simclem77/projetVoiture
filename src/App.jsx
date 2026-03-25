@@ -956,12 +956,20 @@ const App = () => {
                           content="Argent qui sort physiquement de votre compte courant chaque mois (Mensualité réelle + Énergie + Frais fixes). Ne tient pas compte de la perte de valeur du véhicule ni de l'apport initial."
                           position="top"
                         >
-                          <div className="flex items-center gap-2 mt-1 text-sm font-medium">
-                            <Wallet className="w-4 h-4 text-blue-500" />
-                            <span className="text-slate-700">Sortie trésorerie :</span>
-                            <span className="font-bold text-slate-900">
-                              {results[index].leasing.tresorerieMensuelle.toFixed(0)} CHF / mois
-                            </span>
+                          <div className="space-y-1 mt-1">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                              <Wallet className="w-4 h-4 text-blue-500" />
+                              <span className="text-slate-700">Sortie trésorerie :</span>
+                              <span className="font-bold text-slate-900">
+                                {results[index].leasing.tresorerieMensuelle.toFixed(0)} CHF / mois
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-slate-600 ml-6">
+                              <span>Échéance Loyer :</span>
+                              <span className="font-semibold">
+                                {results[index].leasing.mensualiteBrute.toFixed(0)} CHF / mois
+                              </span>
+                            </div>
                           </div>
                         </Tooltip>
                         <StackedBarChart 
@@ -975,12 +983,20 @@ const App = () => {
                           content="Argent qui sort physiquement de votre compte courant chaque mois (Mensualité réelle + Énergie + Frais fixes). Ne tient pas compte de la perte de valeur du véhicule ni de l'apport initial."
                           position="top"
                         >
-                          <div className="flex items-center gap-2 mt-1 text-sm font-medium">
-                            <Wallet className="w-4 h-4 text-emerald-500" />
-                            <span className="text-slate-700">Sortie trésorerie :</span>
-                            <span className="font-bold text-slate-900">
-                              {results[index].credit.tresorerieMensuelle.toFixed(0)} CHF / mois
-                            </span>
+                          <div className="space-y-1 mt-1">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                              <Wallet className="w-4 h-4 text-emerald-500" />
+                              <span className="text-slate-700">Sortie trésorerie :</span>
+                              <span className="font-bold text-slate-900">
+                                {results[index].credit.tresorerieMensuelle.toFixed(0)} CHF / mois
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-slate-600 ml-6">
+                              <span>Échéance Crédit :</span>
+                              <span className="font-semibold">
+                                {results[index].credit.mensualiteBrute.toFixed(0)} CHF / mois
+                              </span>
+                            </div>
                           </div>
                         </Tooltip>
                         <StackedBarChart 

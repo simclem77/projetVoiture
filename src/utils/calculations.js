@@ -129,6 +129,7 @@ export const calculateResults = (cars, settings) => {
       leasing: {
         tco: Math.max(0, tcoLeasing),
         tresorerieMensuelle: Math.max(0, tresorerieLeasing),
+        mensualiteBrute: Math.max(0, mensualiteLeasingBrute),
         breakdown: {
           apportLisse: Math.max(0, apportLisseLeasing),
           banque: Math.max(0, mensualiteLeasingActualisee),
@@ -141,6 +142,7 @@ export const calculateResults = (cars, settings) => {
       credit: {
         tco: Math.max(0, tcoCredit),
         tresorerieMensuelle: Math.max(0, tresorerieCredit),
+        mensualiteBrute: Math.max(0, mensualiteCreditBrute),
         breakdown: {
           apportLisse: 0, 
           banque: Math.max(0, perteValeurCreditMensuelle + interetsCreditMensuelsReels),
