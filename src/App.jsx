@@ -814,6 +814,11 @@ const App = () => {
                             className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
                             placeholder="0.00"
                           />
+                          <div className="text-center mt-1">
+                            <span className="text-xs text-slate-500 font-medium">
+                              {car.prixAchat > 0 ? ((car.valeurResiduelle / car.prixAchat) * 100).toFixed(1) : '0.0'}%
+                            </span>
+                          </div>
                         </div>
                         <div className="flex flex-col justify-end">
                           <div className="flex items-center gap-1 mb-[2px]">
@@ -827,6 +832,11 @@ const App = () => {
                           </div>
                           <div className="w-full px-2 border border-slate-300 rounded-lg text-sm bg-slate-50 text-slate-700 flex items-center h-[38px]">
                             {results[index].valeurResiduelleReelle?.toFixed(0) || '0'} CHF
+                          </div>
+                          <div className="text-center mt-1">
+                            <span className="text-xs text-slate-500 font-medium">
+                              {car.prixAchat > 0 ? ((results[index].valeurResiduelleReelle / car.prixAchat) * 100).toFixed(1) : '0.0'}%
+                            </span>
                           </div>
                         </div>
                         
