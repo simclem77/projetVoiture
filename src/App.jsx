@@ -974,7 +974,7 @@ const App = () => {
                           <textarea
                             value={car.commentaire}
                             onChange={e => updateCar(index, 'commentaire', e.target.value)}
-                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all resize-none h-14"
+                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all resize-none h-30"
                             placeholder="Lien vers l'annonce, options incluses, remarques particulières..."
                           />
                         </div>
