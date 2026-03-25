@@ -1,205 +1,158 @@
-/**
- * Fonction utilitaire pour convertir les nombres avec séparateurs décimaux (format suisse)
- */
+// utils/calculations.js
+
+// Fonction utilitaire pour éviter les erreurs NaN lors de la saisie
 export const parseDecimal = (value) => {
   if (typeof value === 'number') return value;
-  if (typeof value !== 'string') return 0;
-  
-  // Si la chaîne est vide, retourner 0
-  if (value.trim() === '') return 0;
-  
-  // Format suisse : point décimal, pas de séparateur de milliers
-  // On accepte les virgules comme séparateurs décimaux (habitude utilisateur)
-  // "7.5" -> 7.5, "7,5" -> 7.5, "52037" -> 52037
-  // "52'037" -> 52037 (supprime apostrophe), "52 037" -> 52037 (supprime espace)
-  
-  // Remplacer les virgules par des points (habitude utilisateur)
-  let normalized = value.replace(',', '.');
-  
-  // Supprimer les apostrophes et espaces (séparateurs de milliers parfois utilisés)
-  normalized = normalized.replace(/['’\s]/g, '');
-  
-  // Supprimer tout ce qui n'est pas chiffre, point ou signe négatif
-  const cleaned = normalized.replace(/[^\d.-]/g, '');
-  
-  // Convertir en nombre
-  const num = parseFloat(cleaned);
-  
-  // Retourner 0 si NaN, sinon le nombre
-  return isNaN(num) ? 0 : num;
+  const parsed = parseFloat(String(value).replace(',', '.'));
+  return isNaN(parsed) ? 0 : parsed;
 };
 
-/**
- * Fonction pour formater l'affichage avec le séparateur approprié (point pour la Suisse)
- */
-export const formatDecimal = (value, decimals = 2) => {
-  const num = typeof value === 'number' ? value : parseDecimal(value);
-  return num.toFixed(decimals); // Utilise le point comme séparateur décimal
+// 1. NOUVELLE LOGIQUE : Calcul réaliste de la valeur sur le marché de l'occasion
+export const calculerValeurResiduelleReelle = (prixAchat, dureeDetentionMois, kmAnnuel, motorisation, risqueDepreciationPct) => {
+  const annees = dureeDetentionMois / 12;
+
+  // Dépréciation de base selon la motorisation
+  let tauxBase;
+  switch(motorisation) {
+    case 'BEV': tauxBase = 0.18; break;  // Électrique
+    case 'PHEV': tauxBase = 0.17; break; // Hybride rechargeable
+    case 'ICE': tauxBase = 0.15; break;  // Thermique
+    default: tauxBase = 0.15;
+  }
+
+  // Ajustement kilométrique
+  const kmStandard = 15000;
+  const ecartKm = (kmAnnuel - kmStandard) / 5000;
+  const ajustementKm = ecartKm * 0.01; 
+  
+  const tauxFinal = Math.min(0.35, Math.max(0.05, tauxBase + ajustementKm));
+  const valeurStandard = prixAchat * Math.pow((1 - tauxFinal), annees);
+  
+  // Application du risque réglementaire/marché (ex: zones à faibles émissions)
+  const facteurRisque = 1 - (risqueDepreciationPct / 100);
+  const valeurFinale = valeurStandard * facteurRisque;
+
+  return Math.max(0, Math.round(valeurFinale));
 };
 
-/**
- * Moteur de calcul principal pour les résultats TCO
- * Retourne un tableau de résultats pour chaque véhicule
- */
+// 2. MOTEUR PRINCIPAL : Calcul des TCO et ventilation pour les graphiques
 export const calculateResults = (cars, settings) => {
-  const {
-    dureeMois,
-    kmAnnuel,
-    parking,
-    vignette,
-    tauxCreditGlobal,
-    inflationAnnuelle,
-    tauxPlacement,
-    prixEssence,
-    prixElec,
-    ratioElec,
-    dureeDetention
-  } = settings;
-
   return cars.map(car => {
-    // A. Coût Énergie Mensuel (adapté au type de motorisation)
-    const distMensuelle = kmAnnuel / 12;
+    // --- A. FRAIS D'USAGE (Communs aux 3 modes) ---
+    const kmMensuel = settings.kmAnnuel / 12;
     let coutEnergieMensuel = 0;
-    
-    switch (car.motorisation) {
-      case 'ICE': // Thermique
-        coutEnergieMensuel = (distMensuelle / 100) * car.consoEssence * prixEssence;
-        break;
-      case 'BEV': // Électrique
-        coutEnergieMensuel = (distMensuelle / 100) * car.consoElec * prixElec;
-        break;
-      case 'PHEV': // Hybride Rechargeable
-      default:
-        coutEnergieMensuel = (
-          (distMensuelle * (ratioElec / 100) / 100 * car.consoElec * prixElec) +
-          (distMensuelle * (1 - ratioElec / 100) / 100 * car.consoEssence * prixEssence)
-        );
-        break;
+
+    if (car.motorisation === 'ICE') {
+      coutEnergieMensuel = (kmMensuel / 100) * car.consoEssence * settings.prixEssence;
+    } else if (car.motorisation === 'BEV') {
+      coutEnergieMensuel = (kmMensuel / 100) * car.consoElec * settings.prixElec;
+    } else if (car.motorisation === 'PHEV') {
+      const partElec = settings.ratioElec / 100;
+      const partEssence = 1 - partElec;
+      const coutElec = (kmMensuel * partElec / 100) * car.consoElec * settings.prixElec;
+      const coutEssence = (kmMensuel * partEssence / 100) * car.consoEssence * settings.prixEssence;
+      coutEnergieMensuel = coutElec + coutEssence;
     }
 
-    // Valeur résiduelle réelle avec formule de dépréciation long terme
-    // PrixAchat * (0.85 ^ (dureeDetention / 12)) * (1 - risqueDepreciation / 100)
-    const depreciationFactor = Math.pow(0.85, dureeDetention / 12);
-    const valeurResiduelleReelle = car.prixAchat * depreciationFactor * (1 - car.risqueDepreciation / 100);
+    const fraisFixesMensuels = (car.assurance / 12) + 
+                               (car.impotCantonal / 12) + 
+                               (car.entretien / 12) + 
+                               settings.parking + 
+                               (settings.vignette / 12);
+                               
+    const fraisUsage = coutEnergieMensuel + fraisFixesMensuels;
 
-    // Bonus d'entretien de +20% si durée détention > 60 mois
-    const entretienMensuel = car.entretien / 12;
-    const entretienAjuste = dureeDetention > 60 ? entretienMensuel * 1.2 : entretienMensuel;
+    // --- B. VALEUR RÉSIDUELLE RÉELLE ---
+    const valeurResiduelleReelle = calculerValeurResiduelleReelle(
+      car.prixAchat, 
+      settings.dureeDetention, 
+      settings.kmAnnuel, 
+      car.motorisation, 
+      car.risqueDepreciation
+    );
 
-    // Frais Fixes mensuels
-    const fraisFixesMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking + entretienAjuste;
-
-    // Calculs de base pour chaque mode de financement
+    // --- C. LEASING ---
+    const montantFinanceLeasing = car.prixAchat - car.apport - car.valeurResiduelle;
+    const interetsLeasingMensuels = ((car.prixAchat - car.apport + car.valeurResiduelle) / 2) * (car.tauxLeasing / 100 / 12);
+    const mensualiteLeasing = (montantFinanceLeasing / settings.dureeMois) + interetsLeasingMensuels;
     
-    // 1. LEASING (durée fixe = dureeMois)
-    const capitalFinanceLeasing = car.prixAchat - car.apport;
-    const rLeasing = (car.tauxLeasing / 100) / 12;
-    let pmtLeasing = 0;
-    if (rLeasing > 0) {
-      const facteur = Math.pow(1 + rLeasing, -dureeMois);
-      const denom = (1 - facteur) / rLeasing;
-      pmtLeasing = (capitalFinanceLeasing - (car.valeurResiduelle * facteur)) / (denom * (1 + rLeasing));
-    } else {
-      pmtLeasing = (capitalFinanceLeasing - car.valeurResiduelle) / dureeMois;
-    }
+    const apportLisseLeasing = car.apport / settings.dureeMois;
+    const opportuniteLeasing = (car.apport * (settings.tauxPlacement / 100)) / 12;
+    const tcoLeasing = mensualiteLeasing + apportLisseLeasing + fraisUsage + opportuniteLeasing;
 
-    // 2. CRÉDIT (durée du crédit = dureeMois, détention = dureeDetention)
-    const capitalFinanceCredit = car.prixAchat - car.apportCredit;
-    const rCredit = (tauxCreditGlobal / 100) / 12;
-    let pmtCredit = 0;
-    if (rCredit > 0) {
-      pmtCredit = capitalFinanceCredit * (rCredit / (1 - Math.pow(1 + rCredit, -dureeMois)));
-    } else {
-      pmtCredit = capitalFinanceCredit / dureeMois;
-    }
-
-    // Calcul des 5 piliers selon les nouvelles formules
+    // --- D. CRÉDIT ---
+    const montantEmprunte = car.prixAchat - car.apportCredit;
+    const tauxMensuelCredit = settings.tauxCreditGlobal / 100 / 12;
     
-    // Pilier 1: Banque
-    const banqueLeasing = pmtLeasing; // Mensualité brute
-    const banqueCredit = (pmtCredit * dureeMois) / dureeDetention; // Lissé sur la durée de détention
-    const banqueComptant = 0;
-
-    // Pilier 2: Apport Lissé
-    const apportLisseLeasing = Math.max(0, car.apport / dureeMois);
-    const apportLisseCredit = Math.max(0, (car.apportCredit - valeurResiduelleReelle) / dureeDetention);
-    const apportLisseComptant = Math.max(0, (car.prixAchat - valeurResiduelleReelle) / dureeDetention);
-
-    // Pilier 3: Énergie
-    const energie = coutEnergieMensuel;
-
-    // Pilier 4: Frais Fixes
-    const fraisFixes = fraisFixesMensuel;
-
-    // Pilier 5: Opportunité (Coût d'opportunité sur capital immobilisé)
-    const capitalImmobiliseLeasing = car.apport;
-    const capitalImmobiliseCredit = car.apportCredit;
-    const capitalImmobiliseComptant = car.prixAchat;
+    const mensualiteCreditBrute = (tauxMensuelCredit === 0) 
+        ? (montantEmprunte / settings.dureeMois)
+        : montantEmprunte * (tauxMensuelCredit * Math.pow(1 + tauxMensuelCredit, settings.dureeMois)) / (Math.pow(1 + tauxMensuelCredit, settings.dureeMois) - 1);
     
-    const opportuniteLeasing = (capitalImmobiliseLeasing * tauxPlacement / 100) / 12;
-    const opportuniteCredit = (capitalImmobiliseCredit * tauxPlacement / 100) / 12;
-    const opportuniteComptant = (capitalImmobiliseComptant * tauxPlacement / 100) / 12;
+    // Pour le crédit, le vrai coût n'est pas la mensualité (qui inclut du capital qui vous appartient), 
+    // mais la PERTE de valeur de la voiture + les intérêts payés à la banque.
+    const perteValeurCreditMensuelle = (car.prixAchat - valeurResiduelleReelle) / settings.dureeDetention;
+    const interetsCreditMensuelsLisses = mensualiteCreditBrute - (montantEmprunte / settings.dureeMois);
+    
+    const opportuniteCredit = (car.apportCredit * (settings.tauxPlacement / 100)) / 12;
+    const tcoCredit = perteValeurCreditMensuelle + interetsCreditMensuelsLisses + opportuniteCredit + fraisUsage;
 
-    // TCO total (moyenne mensuelle sur la durée de détention)
-    const tcoLeasing = apportLisseLeasing + banqueLeasing + energie + fraisFixes + opportuniteLeasing;
-    const tcoCredit = apportLisseCredit + banqueCredit + energie + fraisFixes + opportuniteCredit;
-    const tcoComptant = apportLisseComptant + banqueComptant + energie + fraisFixes + opportuniteComptant;
+    // --- E. COMPTANT ---
+    const perteValeurComptantMensuelle = (car.prixAchat - valeurResiduelleReelle) / settings.dureeDetention;
+    // L'argent bloqué dans la voiture ne rapporte plus rien : on l'applique sur la totalité du prix
+    const opportuniteComptant = (car.prixAchat * (settings.tauxPlacement / 100)) / 12;
+    const tcoComptant = perteValeurComptantMensuelle + opportuniteComptant + fraisUsage;
 
-    // Breakdown pour les graphiques
-    const breakdownLeasing = {
-      apportLisse: apportLisseLeasing,
-      banque: banqueLeasing,
-      energie: energie,
-      fraisFixes: fraisFixes,
-      opportunite: opportuniteLeasing,
-      total: tcoLeasing
-    };
-
-    const breakdownCredit = {
-      apportLisse: apportLisseCredit,
-      banque: banqueCredit,
-      energie: energie,
-      fraisFixes: fraisFixes,
-      opportunite: opportuniteCredit,
-      total: tcoCredit
-    };
-
-    const breakdownComptant = {
-      apportLisse: apportLisseComptant,
-      banque: banqueComptant,
-      energie: energie,
-      fraisFixes: fraisFixes,
-      opportunite: opportuniteComptant,
-      total: tcoComptant
-    };
-
+    // --- F. RETOUR DES DONNÉES STRUCTURÉES POUR L'UI ---
     return {
-      ...car,
-      coutEnergieMensuel: energie,
-      fraisFixesMensuel: fraisFixes,
-      fraisUsage: energie + fraisFixes,
+      name: car.name,
+      coutEnergieMensuel,
+      fraisUsage,
       valeurResiduelleReelle,
       leasing: {
-        pmt: pmtLeasing > 0 ? pmtLeasing : 0,
-        tco: tcoLeasing,
-        breakdown: breakdownLeasing
+        tco: Math.max(0, tcoLeasing),
+        breakdown: {
+          apportLisse: Math.max(0, apportLisseLeasing),
+          banque: Math.max(0, mensualiteLeasing),
+          energie: coutEnergieMensuel,
+          fraisFixes: fraisFixesMensuels,
+          opportunite: opportuniteLeasing,
+          total: Math.max(0, tcoLeasing)
+        }
       },
       credit: {
-        pmt: pmtCredit > 0 ? pmtCredit : 0,
-        tco: tcoCredit,
-        breakdown: breakdownCredit
+        tco: Math.max(0, tcoCredit),
+        breakdown: {
+          apportLisse: 0, 
+          banque: Math.max(0, perteValeurCreditMensuelle + interetsCreditMensuelsLisses),
+          energie: coutEnergieMensuel,
+          fraisFixes: fraisFixesMensuels,
+          opportunite: opportuniteCredit,
+          total: Math.max(0, tcoCredit)
+        }
       },
       comptant: {
-        tco: tcoComptant,
-        breakdown: breakdownComptant
+        tco: Math.max(0, tcoComptant),
+        breakdown: {
+          apportLisse: 0,
+          banque: Math.max(0, perteValeurComptantMensuelle),
+          energie: coutEnergieMensuel,
+          fraisFixes: fraisFixesMensuels,
+          opportunite: opportuniteComptant,
+          total: Math.max(0, tcoComptant)
+        }
       }
     };
   });
 };
 
-/**
- * Calcule la valeur maximale TCO pour l'échelle des graphiques
- */
+// 3. FONCTION DE MISE À L'ÉCHELLE POUR LES GRAPHIQUES
 export const calculateMaxTCO = (results) => {
-  return Math.max(...results.map(r => Math.max(r.leasing.tco, r.credit.tco, r.comptant.tco)), 1);
+  if (!results || results.length === 0) return 1000;
+  let max = 0;
+  results.forEach(r => {
+    if (r.leasing.tco > max) max = r.leasing.tco;
+    if (r.credit.tco > max) max = r.credit.tco;
+    if (r.comptant.tco > max) max = r.comptant.tco;
+  });
+  return max * 1.05; // Marge de 5% pour que les barres ne touchent pas le bord
 };
