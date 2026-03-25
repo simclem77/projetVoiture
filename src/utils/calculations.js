@@ -84,9 +84,15 @@ export const calculateResults = (cars, settings) => {
     
     // Utilisation de la vraie fonction PMT en début de période (1)
     const mensualiteLeasingActualisee = -PMT(T_L_real_m, N, PV_L, -car.valeurResiduelle, 1);
+    // Calcul de la mensualité brute (sans inflation) pour la trésorerie
+    const T_L_nom_m = T_L_nom / 12;
+    const mensualiteLeasingBrute = -PMT(T_L_nom_m, N, PV_L, -car.valeurResiduelle, 1);
+    
     const apportLisseLeasing = car.apport / N;
     const opportuniteLeasing = (car.apport * T_Plac) / 12;
     const tcoLeasing = mensualiteLeasingActualisee + apportLisseLeasing + opportuniteLeasing + fraisUsage;
+    // Trésorerie mensuelle : mensualité brute + frais d'usage (sans apport lissé ni opportunité)
+    const tresorerieLeasing = mensualiteLeasingBrute + fraisUsage;
 
     // --- D. CRÉDIT ---
     const T_C_nom = settings.tauxCreditGlobal / 100;
@@ -94,17 +100,25 @@ export const calculateResults = (cars, settings) => {
     const PV_C = car.prixAchat - car.apportCredit;
 
     const mensualiteCreditReelle = -PMT(T_C_real_m, N, PV_C, 0, 1);
+    // Calcul de la mensualité brute (sans inflation) pour la trésorerie
+    const T_C_nom_m = T_C_nom / 12;
+    const mensualiteCreditBrute = -PMT(T_C_nom_m, N, PV_C, 0, 1);
+    
     // Pour le crédit, la banque gagne l'amortissement + les intérêts réels
     const interetsCreditMensuelsReels = mensualiteCreditReelle - (PV_C / N);
     const perteValeurCreditMensuelle = (car.prixAchat - valeurResiduelleReelle) / N_detention;
     const opportuniteCredit = (car.apportCredit * T_Plac) / 12;
     
     const tcoCredit = perteValeurCreditMensuelle + interetsCreditMensuelsReels + opportuniteCredit + fraisUsage;
+    // Trésorerie mensuelle : mensualité brute + frais d'usage
+    const tresorerieCredit = mensualiteCreditBrute + fraisUsage;
 
     // --- E. COMPTANT ---
     const perteValeurComptantMensuelle = (car.prixAchat - valeurResiduelleReelle) / N_detention;
     const opportuniteComptant = (car.prixAchat * T_Plac) / 12;
     const tcoComptant = perteValeurComptantMensuelle + opportuniteComptant + fraisUsage;
+    // Trésorerie mensuelle : uniquement les frais d'usage (la voiture est payée cash au départ)
+    const tresorerieComptant = fraisUsage;
 
     // --- F. RETOUR ---
     return {
@@ -114,6 +128,7 @@ export const calculateResults = (cars, settings) => {
       valeurResiduelleReelle,
       leasing: {
         tco: Math.max(0, tcoLeasing),
+        tresorerieMensuelle: Math.max(0, tresorerieLeasing),
         breakdown: {
           apportLisse: Math.max(0, apportLisseLeasing),
           banque: Math.max(0, mensualiteLeasingActualisee),
@@ -125,6 +140,7 @@ export const calculateResults = (cars, settings) => {
       },
       credit: {
         tco: Math.max(0, tcoCredit),
+        tresorerieMensuelle: Math.max(0, tresorerieCredit),
         breakdown: {
           apportLisse: 0, 
           banque: Math.max(0, perteValeurCreditMensuelle + interetsCreditMensuelsReels),
@@ -136,6 +152,7 @@ export const calculateResults = (cars, settings) => {
       },
       comptant: {
         tco: Math.max(0, tcoComptant),
+        tresorerieMensuelle: Math.max(0, tresorerieComptant),
         breakdown: {
           apportLisse: 0,
           banque: Math.max(0, perteValeurComptantMensuelle),

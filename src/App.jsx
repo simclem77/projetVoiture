@@ -392,6 +392,16 @@ const App = () => {
     });
   };
 
+  // Fonction utilitaire pour déterminer le label "Banque" selon le type de financement
+  const getBanqueLabel = (type) => {
+    switch(type) {
+      case 'leasing': return 'Loyer';
+      case 'credit': return 'Dépréciation + Intérêts';
+      case 'comptant': return 'Dépréciation';
+      default: return 'Banque';
+    }
+  };
+
   // --- JSX ---
   // Pour des raisons de concision, seul le JSX essentiel est inclus
   // Le JSX complet sera copié dans l'étape suivante
@@ -935,13 +945,25 @@ const App = () => {
                     <div className="w-2/5 p-4">
                       {/* Graphiques StackedBarChart */}
                       <div className="space-y-3 mb-4">
-                        <StackedBarChart 
+                        <StackedBarChart
                           breakdown={results[index].leasing.breakdown}
                           type="leasing"
                           vehicleName={car.name}
                           motorisation={car.motorisation}
                           maxValue={maxTCO}
                         />
+                        <Tooltip
+                          content="Argent qui sort physiquement de votre compte courant chaque mois (Mensualité réelle + Énergie + Frais fixes). Ne tient pas compte de la perte de valeur du véhicule ni de l'apport initial."
+                          position="top"
+                        >
+                          <div className="flex items-center gap-2 mt-1 text-sm font-medium">
+                            <Wallet className="w-4 h-4 text-blue-500" />
+                            <span className="text-slate-700">Sortie trésorerie :</span>
+                            <span className="font-bold text-slate-900">
+                              {results[index].leasing.tresorerieMensuelle.toFixed(0)} CHF / mois
+                            </span>
+                          </div>
+                        </Tooltip>
                         <StackedBarChart 
                           breakdown={results[index].credit.breakdown}
                           type="credit"
@@ -949,6 +971,18 @@ const App = () => {
                           motorisation={car.motorisation}
                           maxValue={maxTCO}
                         />
+                        <Tooltip
+                          content="Argent qui sort physiquement de votre compte courant chaque mois (Mensualité réelle + Énergie + Frais fixes). Ne tient pas compte de la perte de valeur du véhicule ni de l'apport initial."
+                          position="top"
+                        >
+                          <div className="flex items-center gap-2 mt-1 text-sm font-medium">
+                            <Wallet className="w-4 h-4 text-emerald-500" />
+                            <span className="text-slate-700">Sortie trésorerie :</span>
+                            <span className="font-bold text-slate-900">
+                              {results[index].credit.tresorerieMensuelle.toFixed(0)} CHF / mois
+                            </span>
+                          </div>
+                        </Tooltip>
                         <StackedBarChart 
                           breakdown={results[index].comptant.breakdown}
                           type="comptant"
@@ -956,6 +990,18 @@ const App = () => {
                           motorisation={car.motorisation}
                           maxValue={maxTCO}
                         />
+                        <Tooltip
+                          content="Argent qui sort physiquement de votre compte courant chaque mois (Mensualité réelle + Énergie + Frais fixes). Ne tient pas compte de la perte de valeur du véhicule ni de l'apport initial."
+                          position="top"
+                        >
+                          <div className="flex items-center gap-2 mt-1 text-sm font-medium">
+                            <Wallet className="w-4 h-4 text-purple-500" />
+                            <span className="text-slate-700">Sortie trésorerie :</span>
+                            <span className="font-bold text-slate-900">
+                              {results[index].comptant.tresorerieMensuelle.toFixed(0)} CHF / mois
+                            </span>
+                          </div>
+                        </Tooltip>
                       </div>
                       
                       {/* URL Photo */}
@@ -1106,9 +1152,9 @@ const App = () => {
                             return (
                               <Tooltip
                                 key={`${index}-${key}`}
-                                content={`${key === 'apportLisse' ? 'Apport Lissé' : 
-                                          key === 'banque' ? 'Banque' : 
-                                          key === 'energie' ? 'Énergie' : 
+                                content={`${key === 'apportLisse' ? 'Apport Lissé' :
+                                          key === 'banque' ? getBanqueLabel(item.type) :
+                                          key === 'energie' ? 'Énergie' :
                                           key === 'fraisFixes' ? 'Frais Fixes' : 'Opportunité'}: ${value.toFixed(0)} CHF`}
                                 position="top"
                                 width={`${widthPercentage}%`}
@@ -1141,9 +1187,9 @@ const App = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-slate-700 rounded"></div>
-                    <span className="text-sm text-slate-700">Banque</span>
+                    <span className="text-sm text-slate-700">Financement/Dépréciation</span>
                   </div>
-                  <span className="text-xs text-slate-500">Mensualité brute</span>
+                  <span className="text-xs text-slate-500">Loyer (Leasing), Dépréciation+Intérêts (Crédit), Dépréciation (Comptant)</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
