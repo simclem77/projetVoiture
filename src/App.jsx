@@ -768,15 +768,28 @@ const App = () => {
                     
                     {/* ZONE A - Identité & Usage (18%) */}
                     <div className="w-[18%] p-4 bg-slate-50 border-r border-slate-200">
-                      {/* Photo */}
-                      {car.photoUrl && (
-                        <img 
-                          src={car.photoUrl} 
-                          className="w-full aspect-video object-cover rounded-lg mb-3 shadow-sm border border-slate-200 cursor-pointer" 
-                          onClick={() => openImageModal(car.photoUrl, car.name)} 
-                          alt={car.name}
+                      {/* Photo & URL */}
+                      <div className="mb-4">
+                        {car.photoUrl ? (
+                          <img 
+                            src={car.photoUrl} 
+                            className="w-full aspect-video object-cover rounded-lg mb-2 shadow-sm border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity" 
+                            onClick={() => openImageModal(car.photoUrl, car.name)} 
+                            alt={car.name}
+                          />
+                        ) : (
+                          <div className="w-full aspect-video bg-slate-100 rounded-lg mb-2 flex items-center justify-center text-slate-400 text-xs border border-slate-300 border-dashed">
+                            Aucune photo
+                          </div>
+                        )}
+                        <input
+                          type="text"
+                          value={car.photoUrl}
+                          onChange={e => updateCar(index, 'photoUrl', e.target.value)}
+                          placeholder="Coller l'URL de l'image..."
+                          className="w-full p-1.5 text-[10px] border border-slate-300 rounded bg-white text-slate-600 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-shadow"
                         />
-                      )}
+                      </div>
                       
                       {/* Prix TTC */}
                       <div className="text-center mb-4">
@@ -951,6 +964,19 @@ const App = () => {
                               />
                             </div>
                           </div>
+                        </div>
+                        
+                        {/* NOUVEAU : Bloc Notes & Commentaire */}
+                        <div className="bg-white rounded-xl border border-slate-200 p-3 mt-3">
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">
+                            Notes & Lien de l'annonce
+                          </label>
+                          <textarea
+                            value={car.commentaire}
+                            onChange={e => updateCar(index, 'commentaire', e.target.value)}
+                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all resize-none h-14"
+                            placeholder="Lien vers l'annonce, options incluses, remarques particulières..."
+                          />
                         </div>
                       </div>
                     </div>
