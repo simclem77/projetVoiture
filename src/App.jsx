@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle, Key, Users, Copy, X, Maximize2, Download, Database, Wifi, WifiOff, Info, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { fetchData, saveData, checkHealth, processSyncQueue, getQueueSize } from './api';
 import NumericInput from './components/NumericInput';
@@ -22,6 +22,9 @@ const App = () => {
 
   // --- ÉTAT FILTRE PANEL LATÉRAL ---
   const [filterMode, setFilterMode] = useState('all');
+
+  // --- RÉFÉRENCES POUR DÉFILEMENT VERS CARTES ---
+  const cardRefs = useRef({});
 
   // --- ÉTAT MODAL IMAGE ---
   const [modalImage, setModalImage] = useState({
@@ -465,6 +468,23 @@ const App = () => {
     }
   };
 
+  // Fonction pour défiler vers une carte véhicule spécifique
+  const scrollToCar = (carId) => {
+    const cardElement = cardRefs.current[carId];
+    if (cardElement) {
+      cardElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+      
+      // Ajouter un effet visuel temporaire
+      cardElement.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-2');
+      setTimeout(() => {
+        cardElement.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-2');
+      }, 1500);
+    }
+  };
+
   // --- JSX ---
   // Pour des raisons de concision, seul le JSX essentiel est inclus
   // Le JSX complet sera copié dans l'étape suivante
@@ -775,7 +795,11 @@ const App = () => {
             {/* PILE DE CARTES VÉHICULES HORIZONTALES */}
             <div className="flex flex-col gap-4 pb-6">
               {cars.map((car, index) => (
-                <div key={car.id} className="bg-white rounded-xl shadow-md border border-slate-200 flex flex-col relative group">
+                <div 
+                  key={car.id} 
+                  ref={el => cardRefs.current[car.id] = el}
+                  className="bg-white rounded-xl shadow-md border border-slate-200 flex flex-col relative group"
+                >
                   
                   {/* HEADER HORIZONTAL - Full Width */}
                   <div className="w-full bg-slate-900 text-white p-3 rounded-t-2xl flex justify-between items-center">
@@ -1233,28 +1257,32 @@ const App = () => {
               <div className="space-y-4">
                 {(() => {
                   const allData = [];
-                  results.forEach(r => {
+                  results.forEach((r, resultIndex) => {
+                    const carId = cars[resultIndex]?.id;
                     allData.push(
                       {
                         type: 'leasing',
                         vehicle: r.name,
                         breakdown: r.leasing.breakdown,
                         color: 'blue',
-                        total: r.leasing.tco
+                        total: r.leasing.tco,
+                        carId: carId
                       },
                       {
                         type: 'credit',
                         vehicle: r.name,
                         breakdown: r.credit.breakdown,
                         color: 'emerald',
-                        total: r.credit.tco
+                        total: r.credit.tco,
+                        carId: carId
                       },
                       {
                         type: 'comptant',
                         vehicle: r.name,
                         breakdown: r.comptant.breakdown,
                         color: 'purple',
-                        total: r.comptant.tco
+                        total: r.comptant.tco,
+                        carId: carId
                       }
                     );
                   });
@@ -1302,7 +1330,18 @@ const App = () => {
                           <div className="flex items-center gap-2">
                             <div className={`w-3 h-3 ${item.type === 'leasing' ? 'bg-blue-500' : item.type === 'credit' ? 'bg-emerald-500' : 'bg-purple-500'} rounded`}></div>
                             <div className="flex flex-col">
-                              <span className="font-bold text-slate-800 text-sm">{item.vehicle}</span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-bold text-slate-800 text-sm">{item.vehicle}</span>
+                                {item.carId && (
+                                  <button
+                                    onClick={() => scrollToCar(item.carId)}
+                                    className="text-slate-400 hover:text-indigo-600 transition-colors ml-1"
+                                    title="Voir la carte du véhicule"
+                                  >
+                                    🔗
+                                  </button>
+                                )}
+                              </div>
                               <span className={`text-xs px-2 py-0.5 rounded-full w-fit mt-1 ${
                                 item.type === 'leasing' ? 'bg-blue-100 text-blue-700' 
                                 : item.type === 'credit' ? 'bg-emerald-100 text-emerald-700' 
