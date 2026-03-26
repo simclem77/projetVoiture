@@ -52,6 +52,9 @@ const App = () => {
         photoUrl: "",
         commentaire: "",
         motorisation: 'PHEV',
+        etat: 'neuf',
+        ageMois: 0,
+        kmActuel: 0,
         prixAchat: 52037,
         apport: 15000,
         apportCredit: 15000,
@@ -70,6 +73,9 @@ const App = () => {
         photoUrl: "",
         commentaire: "",
         motorisation: 'PHEV',
+        etat: 'neuf',
+        ageMois: 0,
+        kmActuel: 0,
         prixAchat: 46000,
         apport: 10000,
         apportCredit: 10000,
@@ -88,6 +94,9 @@ const App = () => {
         photoUrl: "",
         commentaire: "",
         motorisation: 'BEV',
+        etat: 'neuf',
+        ageMois: 0,
+        kmActuel: 0,
         prixAchat: 56000,
         apport: 15000,
         apportCredit: 15000,
@@ -125,7 +134,8 @@ const App = () => {
   const updateCar = (index, field, value) => {
     const newCars = [...cars];
     const numericFields = ['prixAchat', 'apport', 'apportCredit', 'tauxLeasing', 'valeurResiduelle', 
-                          'assurance', 'impotCantonal', 'consoElec', 'consoEssence', 'risqueDepreciation', 'entretien'];
+                          'assurance', 'impotCantonal', 'consoElec', 'consoEssence', 'risqueDepreciation', 
+                          'entretien', 'ageMois', 'kmActuel'];
     
     if (numericFields.includes(field)) {
       newCars[index][field] = parseDecimal(value);
@@ -164,6 +174,9 @@ const App = () => {
       photoUrl: "",
       commentaire: "",
       motorisation: 'PHEV',
+      etat: 'neuf',
+      ageMois: 0,
+      kmActuel: 0,
       prixAchat: 40000,
       apport: 10000,
       apportCredit: 10000,
@@ -182,6 +195,29 @@ const App = () => {
     if (cars.length > 1) {
       setCars(cars.filter(car => car.id !== idToRemove));
     }
+  };
+
+  // Fonction d'estimation automatique de l'entretien
+  const estimateEntretien = (index) => {
+    const car = cars[index];
+    const anneesTotales = (car.ageMois / 12) + (settings.dureeDetention / 12);
+    const kmTotal = car.kmActuel + (settings.kmAnnuel * (settings.dureeDetention / 12));
+    
+    let entretienEstime = 0;
+    
+    // Règle métier
+    if (anneesTotales < 4 && kmTotal < 100000) {
+      // Garantie/Free Service = 400 CHF/an
+      entretienEstime = 400;
+    } else if (anneesTotales >= 4 && anneesTotales < 8) {
+      // Usure normale = 800 CHF/an
+      entretienEstime = 800;
+    } else if (anneesTotales >= 8 || kmTotal > 100000) {
+      // Risque pannes = 1200 CHF/an
+      entretienEstime = 1200;
+    }
+    
+    updateCar(index, 'entretien', entretienEstime);
   };
 
   // --- CHARGEMENT & SAUVEGARDE ---
@@ -759,15 +795,25 @@ const App = () => {
                         <option value="PHEV">Hybride (PHEV)</option>
                         <option value="BEV">Électrique (BEV)</option>
                       </select>
-                      
+
+                      {/* Sélecteur d'état (Neuf/Occasion) */}
+                      <select
+                        value={car.etat}
+                        onChange={e => updateCar(index, 'etat', e.target.value)}
+                        className="bg-slate-800 text-white px-3 py-1.5 rounded-lg border border-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      >
+                        <option value="neuf">Neuf</option>
+                        <option value="occasion">Occasion</option>
+                      </select>
+
                       {/* Badge de motorisation */}
                       <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                        car.motorisation === 'ICE' ? 'bg-orange-500 text-white' : 
-                        car.motorisation === 'BEV' ? 'bg-blue-500 text-white' : 
+                        car.motorisation === 'ICE' ? 'bg-orange-500 text-white' :
+                        car.motorisation === 'BEV' ? 'bg-blue-500 text-white' :
                         'bg-emerald-500 text-white'
                       }`}>
-                        {car.motorisation === 'ICE' ? 'Thermique' : 
-                         car.motorisation === 'BEV' ? 'Électrique' : 
+                        {car.motorisation === 'ICE' ? 'Thermique' :
+                         car.motorisation === 'BEV' ? 'Électrique' :
                          'Hybride PHEV'}
                       </div>
                     </div>
@@ -889,6 +935,29 @@ const App = () => {
                               </div>
                             </div>
                           </div>
+                          {/* Champs supplémentaires pour véhicules d'occasion */}
+                          {car.etat === 'occasion' && (
+                            <div className="mt-3 pt-3 border-t border-slate-200 grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-[9px] font-bold text-slate-400 uppercase">Âge (Mois)</label>
+                                <NumericInput
+                                  value={car.ageMois}
+                                  onChange={val => updateCar(index, 'ageMois', val)}
+                                  className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-bold text-slate-400 uppercase">Km Actuel</label>
+                                <NumericInput
+                                  value={car.kmActuel}
+                                  onChange={val => updateCar(index, 'kmActuel', val)}
+                                  className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
+                                  placeholder="0"
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Bloc Financement */}
@@ -975,7 +1044,18 @@ const App = () => {
                               />
                             </div>
                             <div>
-                              <label className="block text-[9px] font-bold text-slate-400 uppercase">Entretien</label>
+                              <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1 flex items-center gap-1">
+                                Entretien
+                                <Tooltip content="Estimer automatiquement">
+                                  <button 
+                                    onClick={() => estimateEntretien(index)}
+                                    className="text-slate-400 hover:text-indigo-600 transition-colors"
+                                    title="Estimer l'entretien selon l'âge et kilométrage"
+                                  >
+                                    🪄
+                                  </button>
+                                </Tooltip>
+                              </label>
                               <NumericInput
                                 value={car.entretien}
                                 onChange={val => updateCar(index, 'entretien', val)}

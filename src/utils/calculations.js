@@ -8,16 +8,28 @@ export const parseDecimal = (value) => {
 };
 
 // 1. NOUVELLE LOGIQUE : Calcul réaliste de la valeur sur le marché de l'occasion
-export const calculerValeurResiduelleReelle = (prixAchat, dureeDetentionMois, kmAnnuel, motorisation, risqueDepreciationPct) => {
+// avec prise en compte de l'état du véhicule (neuf/occasion) et de l'âge
+export const calculerValeurResiduelleReelle = (prixAchat, dureeDetentionMois, kmAnnuel, motorisation, risqueDepreciationPct, etat = 'neuf', ageMois = 0) => {
   const annees = dureeDetentionMois / 12;
 
-  // Dépréciation de base selon la motorisation
+  // Dépréciation de base selon la motorisation ET l'état
   let tauxBase;
-  switch(motorisation) {
-    case 'BEV': tauxBase = 0.18; break;  // Électrique
-    case 'PHEV': tauxBase = 0.17; break; // Hybride rechargeable
-    case 'ICE': tauxBase = 0.15; break;  // Thermique
-    default: tauxBase = 0.15;
+  if (etat === 'occasion') {
+    // Un véhicule d'occasion décote moins vite sur la période suivante
+    switch(motorisation) {
+      case 'BEV': tauxBase = 0.12; break;  // Électrique
+      case 'PHEV': tauxBase = 0.10; break; // Hybride rechargeable
+      case 'ICE': tauxBase = 0.08; break;  // Thermique
+      default: tauxBase = 0.08;
+    }
+  } else {
+    // Logique actuelle pour le neuf
+    switch(motorisation) {
+      case 'BEV': tauxBase = 0.18; break;  // Électrique
+      case 'PHEV': tauxBase = 0.17; break; // Hybride rechargeable
+      case 'ICE': tauxBase = 0.15; break;  // Thermique
+      default: tauxBase = 0.15;
+    }
   }
 
   // Ajustement kilométrique
@@ -74,7 +86,7 @@ export const calculateResults = (cars, settings) => {
 
     // --- B. VALEUR RÉSIDUELLE RÉELLE ---
     const valeurResiduelleReelle = calculerValeurResiduelleReelle(
-      car.prixAchat, settings.dureeDetention, settings.kmAnnuel, car.motorisation, car.risqueDepreciation
+      car.prixAchat, settings.dureeDetention, settings.kmAnnuel, car.motorisation, car.risqueDepreciation, car.etat, car.ageMois
     );
 
     // --- C. LEASING ---
