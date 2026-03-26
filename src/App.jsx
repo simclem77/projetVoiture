@@ -1,248 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle, Key, Users, Copy, X, Maximize2, Download, Database, Wifi, WifiOff, Info, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
-import { fetchData, saveData, checkHealth, processSyncQueue, isOnline, getQueueSize } from './api';
-
-// --- Configuration pour Raspberry Pi (Mode local uniquement) ---
-const isFirebaseValid = false; // Désactivé pour Raspberry Pi
-const app = null;
-const auth = null;
-const db = null;
-const currentAppId = 'comparateur-auto-local';
-
-// Composant pour la saisie numérique avec gestion optimisée pour mobile
-// Ce composant gère un état local en texte pour permettre de taper "." ou ","
-// sans que le curseur ne saute ou que le caractère disparaisse.
-const NumericInput = ({ value, onChange, className, placeholder, inputMode = "decimal" }) => {
-  const [localValue, setLocalValue] = useState(value?.toString() || "");
-
-  // Synchronisation si la valeur change de l'extérieur
-  useEffect(() => {
-    const stringValue = value?.toString() || "";
-    if (parseFloat(localValue) !== value && localValue !== stringValue) {
-      setLocalValue(stringValue);
-    }
-  }, [value]);
-
-  const handleChange = (e) => {
-    const rawValue = e.target.value;
-    const normalizedValue = rawValue.replace(',', '.');
-
-    // On met à jour l'affichage immédiatement (autorise "7." temporairement)
-    setLocalValue(rawValue);
-
-    // On propage le nombre au parent uniquement si c'est valide
-    const parsed = parseFloat(normalizedValue);
-    if (!isNaN(parsed)) {
-      onChange(parsed);
-    } else if (rawValue === "") {
-      onChange(0);
-    }
-  };
-
-  return (
-    <input
-      type="text"
-      inputMode={inputMode}
-      value={localValue}
-      onChange={handleChange}
-      className={className}
-      placeholder={placeholder}
-    />
-  );
-};
-
-// Fonction utilitaire pour convertir les nombres avec séparateurs décimaux (format suisse)
-const parseDecimal = (value) => {
-  if (typeof value === 'number') return value;
-  if (typeof value !== 'string') return 0;
-  
-  // Si la chaîne est vide, retourner 0
-  if (value.trim() === '') return 0;
-  
-  // Format suisse : point décimal, pas de séparateur de milliers
-  // On accepte les virgules comme séparateurs décimaux (habitude utilisateur)
-  // "7.5" -> 7.5, "7,5" -> 7.5, "52037" -> 52037
-  // "52'037" -> 52037 (supprime apostrophe), "52 037" -> 52037 (supprime espace)
-  
-  // Remplacer les virgules par des points (habitude utilisateur)
-  let normalized = value.replace(',', '.');
-  
-  // Supprimer les apostrophes et espaces (séparateurs de milliers parfois utilisés)
-  normalized = normalized.replace(/['’\s]/g, '');
-  
-  // Supprimer tout ce qui n'est pas chiffre, point ou signe négatif
-  const cleaned = normalized.replace(/[^\d.-]/g, '');
-  
-  // Convertir en nombre
-  const num = parseFloat(cleaned);
-  
-  // Retourner 0 si NaN, sinon le nombre
-  return isNaN(num) ? 0 : num;
-};
-
-// Fonction pour formater l'affichage avec le séparateur approprié (point pour la Suisse)
-const formatDecimal = (value, decimals = 2) => {
-  const num = typeof value === 'number' ? value : parseDecimal(value);
-  return num.toFixed(decimals); // Utilise le point comme séparateur décimal
-};
-
-// Composant Tooltip optimisé pour les barres empilées (sans gaps)
-const Tooltip = ({ children, content, position = 'top', width = '100%' }) => {
-  const [isVisible, setIsVisible] = useState(false);
-  
-  return (
-    <div 
-      className="relative h-full flex" // Ajout de h-full et flex ici
-      style={{ width, flexShrink: 0 }}
-      onMouseEnter={() => setIsVisible(true)}
-      onMouseLeave={() => setIsVisible(false)}
-    >
-      {/* On s'assure que l'enfant prend toute la place du Tooltip */}
-      <div className="w-full h-full">
-        {children}
-      </div>
-      
-      {isVisible && (
-        <div className={`
-          absolute z-50 px-3 py-2 text-xs font-bold text-white bg-slate-800 rounded-lg shadow-lg
-          whitespace-nowrap pointer-events-none
-          ${position === 'top' ? 'bottom-full mb-2 left-1/2 transform -translate-x-1/2' : 'top-full mt-2 left-1/2 transform -translate-x-1/2'}
-        `}>
-          {content}
-          <div className={`
-            absolute w-2 h-2 bg-slate-800 transform rotate-45
-            ${position === 'top' ? 'top-full -mt-1 left-1/2 -translate-x-1/2' : 'bottom-full -mb-1 left-1/2 -translate-x-1/2'}
-          `}></div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Composant StackedBarChart pour les graphiques TCO empilés (5 catégories avec "Banque")
-const StackedBarChart = ({ breakdown, type, vehicleName, motorisation }) => {
-  const categories = [
-    { key: 'apportLisse', label: 'Apport Lissé', tooltip: 'Coût net de l\'apport (après déduction de la valeur de revente)' },
-    { key: 'banque', label: 'Banque', tooltip: 'Mensualité brute payée (flux réel sortant vers l\'organisme de financement)' },
-    { key: 'energie', label: 'Énergie', tooltip: motorisation === 'ICE' ? 'Essence uniquement' : motorisation === 'BEV' ? 'Électricité uniquement' : 'Mix PHEV (électricité + essence)' },
-    { key: 'fraisFixes', label: 'Frais Fixes', tooltip: 'Assurance + Impôt + Vignette + Parking + Entretien' },
-    { key: 'opportunite', label: 'Opportunité', tooltip: 'Gain manqué sur le placement' }
-  ];
-
-  // Couleurs selon le type de financement (5 catégories avec dégradation logique)
-  const colorSchemes = {
-    leasing: {
-      apportLisse: 'bg-blue-950',    // Nuance 950 (très sombre)
-      banque: 'bg-blue-700',         // Nuance 700 (sombre)
-      energie: 'bg-blue-500',        // Nuance 500 (moyen)
-      fraisFixes: 'bg-blue-300',     // Nuance 300 (clair)
-      opportunite: 'bg-blue-200'     // Nuance 200 (pastel)
-    },
-    credit: {
-      apportLisse: 'bg-emerald-950', // Nuance 950 (très sombre)
-      banque: 'bg-emerald-700',      // Nuance 700 (sombre)
-      energie: 'bg-emerald-500',     // Nuance 500 (moyen)
-      fraisFixes: 'bg-emerald-300',  // Nuance 300 (clair)
-      opportunite: 'bg-emerald-200'  // Nuance 200 (pastel)
-    },
-    comptant: {
-      apportLisse: 'bg-purple-950',  // Nuance 950 (très sombre)
-      banque: 'bg-purple-700',       // Nuance 700 (sombre)
-      energie: 'bg-purple-500',      // Nuance 500 (moyen)
-      fraisFixes: 'bg-purple-300',   // Nuance 300 (clair)
-      opportunite: 'bg-purple-200'   // Nuance 200 (pastel)
-    }
-  };
-
-  const colors = colorSchemes[type] || colorSchemes.leasing;
-
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between items-center text-xs">
-        <span className="font-medium text-slate-700">
-          {type === 'leasing' ? 'Leasing' : type === 'credit' ? 'Crédit' : 'Comptant'}
-        </span>
-        <span className="font-bold text-slate-800">{breakdown.total.toFixed(0)} CHF</span>
-      </div>
-      
-      <div className="w-full h-6 bg-slate-100 rounded-full overflow-visible flex relative z-30">
-        {categories.map((category, catIndex) => {
-          const value = breakdown[category.key];
-          const percentage = (value / breakdown.total) * 100;
-          
-          if (value <= 0) return null;
-          
-          // Trouver le premier et dernier segment visible
-          const visibleCategories = categories.filter(cat => breakdown[cat.key] > 0);
-          const isFirstVisible = catIndex === categories.findIndex(cat => breakdown[cat.key] > 0);
-          const isLastVisible = catIndex === categories.findLastIndex(cat => breakdown[cat.key] > 0);
-          
-          let roundedClasses = '';
-          if (isFirstVisible) roundedClasses += ' rounded-l-full';
-          if (isLastVisible) roundedClasses += ' rounded-r-full';
-          
-          return (
-            <Tooltip
-              key={category.key}
-              content={`${category.label}: ${value.toFixed(0)} CHF`}
-              position="top"
-              width={`${percentage}%`}
-            >
-              <div
-                className={`h-full w-full ${colors[category.key]} transition-all duration-300 hover:opacity-90 ${roundedClasses}`}
-              >
-                {/* Supprimé le texte blanc à l'intérieur */}
-              </div>
-            </Tooltip>
-          );
-        })}
-      </div>
-      
-      {/* Légende des segments */}
-      <div className="flex flex-wrap gap-1.5 text-[10px]">
-        {categories.map(category => {
-          const value = breakdown[category.key];
-          if (value <= 0) return null;
-          
-          return (
-            <Tooltip
-              key={category.key}
-              content={`${category.label}: ${value.toFixed(0)} CHF - ${category.tooltip}`}
-              position="top"
-            >
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 rounded border border-slate-200 cursor-help">
-                <div className={`w-2 h-2 ${colors[category.key]} rounded`}></div>
-                <span className="text-slate-700 font-medium">{category.label}</span>
-                <span className="text-slate-500">{value.toFixed(0)}</span>
-              </div>
-            </Tooltip>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
+import { fetchData, saveData, checkHealth, processSyncQueue, getQueueSize } from './api';
+import NumericInput from './components/NumericInput';
+import Tooltip from './components/Tooltip';
+import StackedBarChart from './components/StackedBarChart';
+import { calculateResults, calculateMaxTCO, parseDecimal } from './utils/calculations';
 
 const App = () => {
-  // --- ÉTAT AUTH & SAUVEGARDE ---
-  const [user, setUser] = useState(null);
+  // --- ÉTAT GLOBAL GÉNÉRAL ---
+  const [sharedCode, setSharedCode] = useState(() => {
+    return localStorage.getItem('comparateur_shared_code') || 'COMP123';
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [saveError, setSaveError] = useState(false);
   const [apiHealth, setApiHealth] = useState(false);
   const [queueSize, setQueueSize] = useState(0);
-  
-  // --- SYSTÈME DE CODE PARTAGÉ ---
-  const [sharedCode, setSharedCode] = useState(() => {
-    // Récupérer le code depuis le localStorage s'il existe
-    return localStorage.getItem('comparateur_shared_code') || 'COMP123';
-  });
   const [isCodeValid, setIsCodeValid] = useState(true);
   const [showLoadButton, setShowLoadButton] = useState(false);
-  
+  const [isGuideOpen, setIsGuideOpen] = useState(true);
+
+  // --- ÉTAT FILTRE PANEL LATÉRAL ---
+  const [filterMode, setFilterMode] = useState('all');
+
   // --- ÉTAT MODAL IMAGE ---
   const [modalImage, setModalImage] = useState({
     isOpen: false,
@@ -250,14 +30,12 @@ const App = () => {
     title: ''
   });
 
-  // --- ÉTAT GUIDE PÉDAGOGIQUE ---
-  const [isGuideOpen, setIsGuideOpen] = useState(true);
-
   // --- PARAMÈTRES GLOBAUX ---
   const [dureeMois, setDureeMois] = useState(48);
+  const [dureeDetention, setDureeDetention] = useState(96);
   const [kmAnnuel, setKmAnnuel] = useState(15000);
-  const [parking, setParking] = useState(0); 
-  const [vignette, setVignette] = useState(40); 
+  const [parking, setParking] = useState(0);
+  const [vignette, setVignette] = useState(40);
   const [tauxCreditGlobal, setTauxCreditGlobal] = useState(4.9);
   const [inflationAnnuelle, setInflationAnnuelle] = useState(2.0);
   const [tauxPlacement, setTauxPlacement] = useState(3.0);
@@ -265,34 +43,33 @@ const App = () => {
   const [prixElec, setPrixElec] = useState(0.33);
   const [ratioElec, setRatioElec] = useState(80);
 
-  // --- VÉHICULES (Tableau d'objets dynamique) ---
+  // --- VÉHICULES ---
   const [cars, setCars] = useState(() => {
-    // Charger les données par défaut immédiatement pour éviter le flash
     return [
       {
         id: 1,
         name: "Votre Devis Actuel",
         photoUrl: "",
         commentaire: "",
-        motorisation: 'PHEV', // ICE, PHEV, BEV
+        motorisation: 'PHEV',
         prixAchat: 52037,
         apport: 15000,
-        apportCredit: 15000, // Apport spécifique pour le crédit
+        apportCredit: 15000,
         tauxLeasing: 0.99,
         valeurResiduelle: 23784,
         assurance: 1500,
         impotCantonal: 450,
-        consoElec: 0, // kWh/100km
-        consoEssence: 7.5, // L/100km
-        risqueDepreciation: 10, // % de risque de dépréciation
-        entretien: 0 
+        consoElec: 0,
+        consoEssence: 7.5,
+        risqueDepreciation: 10,
+        entretien: 0
       },
       {
         id: 2,
         name: "Break Hybride (Exemple)",
         photoUrl: "",
         commentaire: "",
-        motorisation: 'PHEV', // ICE, PHEV, BEV
+        motorisation: 'PHEV',
         prixAchat: 46000,
         apport: 10000,
         apportCredit: 10000,
@@ -300,9 +77,9 @@ const App = () => {
         valeurResiduelle: 18000,
         assurance: 1300,
         impotCantonal: 250,
-        consoElec: 15, // kWh/100km
-        consoEssence: 5.5, // L/100km
-        risqueDepreciation: 15, // % de risque de dépréciation
+        consoElec: 15,
+        consoEssence: 5.5,
+        risqueDepreciation: 15,
         entretien: 700
       },
       {
@@ -310,78 +87,43 @@ const App = () => {
         name: "Électrique Familiale",
         photoUrl: "",
         commentaire: "",
-        motorisation: 'BEV', // ICE, PHEV, BEV
+        motorisation: 'BEV',
         prixAchat: 56000,
         apport: 15000,
         apportCredit: 15000,
         tauxLeasing: 1.5,
         valeurResiduelle: 26000,
         assurance: 1600,
-        impotCantonal: 0, 
-        consoElec: 18, // kWh/100km
-        consoEssence: 0, // L/100km
-        risqueDepreciation: 20, // % de risque de dépréciation
-        entretien: 300 
+        impotCantonal: 0,
+        consoElec: 18,
+        consoEssence: 0,
+        risqueDepreciation: 20,
+        entretien: 300
       }
     ];
   });
-  
-  // Données par défaut si Firebase n'est pas configuré ou si aucune donnée n'existe
-  const defaultCars = [
-    {
-      id: 1,
-      name: "Votre Devis Actuel",
-      photoUrl: "",
-      commentaire: "",
-      prixAchat: 52037,
-      apport: 15000,
-      apportCredit: 15000,
-      tauxLeasing: 0.99,
-      valeurResiduelle: 23784,
-      assurance: 1500,
-      impotCantonal: 450,
-      consommation: 7.5, 
-      prixCarburant: 1.85,
-      entretien: 0 
-    },
-    {
-      id: 2,
-      name: "Break Hybride (Exemple)",
-      photoUrl: "",
-      commentaire: "",
-      prixAchat: 46000,
-      apport: 10000,
-      apportCredit: 10000,
-      tauxLeasing: 2.9,
-      valeurResiduelle: 18000,
-      assurance: 1300,
-      impotCantonal: 250,
-      consommation: 5.5,
-      prixCarburant: 1.85,
-      entretien: 700
-    },
-    {
-      id: 3,
-      name: "Électrique Familiale",
-      photoUrl: "",
-      commentaire: "",
-      prixAchat: 56000,
-      apport: 15000,
-      apportCredit: 15000,
-      tauxLeasing: 1.5,
-      valeurResiduelle: 26000,
-      assurance: 1600,
-      impotCantonal: 0, 
-      consommation: 18, 
-      prixCarburant: 0.28, 
-      entretien: 300 
-    }
-  ];
 
-  // Actions sur les véhicules
+  // --- CALCULS OPTIMISÉS ---
+  const settings = useMemo(() => ({
+    dureeMois,
+    dureeDetention,
+    kmAnnuel,
+    parking,
+    vignette,
+    tauxCreditGlobal,
+    inflationAnnuelle,
+    tauxPlacement,
+    prixEssence,
+    prixElec,
+    ratioElec
+  }), [dureeMois, dureeDetention, kmAnnuel, parking, vignette, tauxCreditGlobal, inflationAnnuelle, tauxPlacement, prixEssence, prixElec, ratioElec]);
+
+  const results = useMemo(() => calculateResults(cars, settings), [cars, settings]);
+  const maxTCO = useMemo(() => calculateMaxTCO(results), [results]);
+
+  // --- ACTIONS SUR LES VÉHICULES ---
   const updateCar = (index, field, value) => {
     const newCars = [...cars];
-    // Utiliser parseDecimal pour les champs numériques
     const numericFields = ['prixAchat', 'apport', 'apportCredit', 'tauxLeasing', 'valeurResiduelle', 
                           'assurance', 'impotCantonal', 'consoElec', 'consoEssence', 'risqueDepreciation', 'entretien'];
     
@@ -391,28 +133,20 @@ const App = () => {
       newCars[index][field] = value;
     }
 
-    // Ajustement automatique des valeurs selon le type de motorisation
     if (field === 'motorisation') {
       const car = newCars[index];
       switch (value) {
-        case 'ICE': // Thermique
-          // Impôt cantonal plus élevé (barème Vaudois)
+        case 'ICE':
           if (car.impotCantonal < 400) car.impotCantonal = 450;
-          // Risque de dépréciation plus fort pour Lausanne 2030
           if (car.risqueDepreciation < 15) car.risqueDepreciation = 20;
-          // Consommation électrique à 0
           car.consoElec = 0;
           break;
-        case 'BEV': // Électrique
-          // Exonération d'impôt cantonal (si toujours en vigueur)
+        case 'BEV':
           car.impotCantonal = 0;
-          // Risque de dépréciation faible
           if (car.risqueDepreciation > 10) car.risqueDepreciation = 5;
-          // Consommation essence à 0
           car.consoEssence = 0;
           break;
-        case 'PHEV': // Hybride Rechargeable
-          // Valeurs intermédiaires
+        case 'PHEV':
           if (car.impotCantonal === 0) car.impotCantonal = 250;
           if (car.risqueDepreciation < 10) car.risqueDepreciation = 15;
           break;
@@ -429,14 +163,17 @@ const App = () => {
       name: `Nouveau Véhicule`,
       photoUrl: "",
       commentaire: "",
+      motorisation: 'PHEV',
       prixAchat: 40000,
       apport: 10000,
+      apportCredit: 10000,
       tauxLeasing: 2.9,
       valeurResiduelle: 15000,
       assurance: 1200,
       impotCantonal: 300,
-      consommation: 6.0,
-      prixCarburant: 1.85,
+      consoElec: 10,
+      consoEssence: 5.0,
+      risqueDepreciation: 15,
       entretien: 500
     }]);
   };
@@ -447,13 +184,12 @@ const App = () => {
     }
   };
 
-  // --- EFFET DE CHARGEMENT INITIAL (API + localStorage) ---
+  // --- CHARGEMENT & SAUVEGARDE ---
   useEffect(() => {
     const loadInitialData = async () => {
       console.log(`🔄 Chargement des données pour le code: ${sharedCode}`);
       
       try {
-        // 1. Essayer de charger depuis l'API SQLite
         const data = await fetchData(sharedCode);
         if (data && data.cars) {
           setCars(data.cars);
@@ -464,59 +200,68 @@ const App = () => {
           if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
           if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
           if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
+          if (data.dureeDetention !== undefined) setDureeDetention(parseDecimal(data.dureeDetention));
+          if (data.prixEssence !== undefined) setPrixEssence(parseDecimal(data.prixEssence));
+          if (data.prixElec !== undefined) setPrixElec(parseDecimal(data.prixElec));
+          if (data.ratioElec !== undefined) setRatioElec(parseDecimal(data.ratioElec));
           if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
           setIsCodeValid(true);
           console.log('✅ Données chargées depuis l\'API SQLite');
-          return; // Données trouvées dans l'API, on s'arrête là
+          return;
         }
       } catch (error) {
         console.warn('⚠️ API non disponible, fallback localStorage:', error.message);
       }
       
-      // 2. Fallback : charger depuis localStorage
-      const savedData = localStorage.getItem(`comparateur_${sharedCode}`);
-      if (savedData) {
-        try {
-          const data = JSON.parse(savedData);
-          if (data.cars) setCars(data.cars);
-          if (data.dureeMois) setDureeMois(data.dureeMois);
-          if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
-          if (data.parking !== undefined) setParking(data.parking);
-          if (data.vignette !== undefined) setVignette(data.vignette);
-          if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
-          if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
-          if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
-          if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
-          setIsCodeValid(true);
-          console.log('📦 Données chargées depuis localStorage');
-        } catch (error) {
-          console.warn("❌ Erreur de chargement localStorage:", error);
+        const savedData = localStorage.getItem(`comparateur_${sharedCode}`);
+        if (savedData) {
+          try {
+            const data = JSON.parse(savedData);
+            if (data.cars) setCars(data.cars);
+            if (data.dureeMois) setDureeMois(data.dureeMois);
+            if (data.kmAnnuel) setKmAnnuel(data.kmAnnuel);
+            if (data.parking !== undefined) setParking(data.parking);
+            if (data.vignette !== undefined) setVignette(data.vignette);
+            if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
+            if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
+            if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
+            if (data.dureeDetention !== undefined) setDureeDetention(parseDecimal(data.dureeDetention));
+            if (data.prixEssence !== undefined) setPrixEssence(parseDecimal(data.prixEssence));
+            if (data.prixElec !== undefined) setPrixElec(parseDecimal(data.prixElec));
+            if (data.ratioElec !== undefined) setRatioElec(parseDecimal(data.ratioElec));
+            if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
+            setIsCodeValid(true);
+            console.log('📦 Données chargées depuis localStorage');
+          } catch (error) {
+            console.warn("❌ Erreur de chargement localStorage:", error);
+          }
+        } else {
+          console.log('ℹ️ Aucune donnée trouvée, utilisation des valeurs par défaut');
         }
-      } else {
-        console.log('ℹ️ Aucune donnée trouvée, utilisation des valeurs par défaut');
-      }
     };
     
     loadInitialData();
   }, [sharedCode]);
 
-  // Sauvegarde automatique quand les données changent
   useEffect(() => {
     const saveTimeout = setTimeout(() => {
       const data = {
         cars,
         dureeMois,
+        dureeDetention,
         kmAnnuel,
         parking,
         vignette,
         tauxCreditGlobal,
         inflationAnnuelle,
         tauxPlacement,
+        prixEssence,
+        prixElec,
+        ratioElec,
         sharedCode,
         updatedAt: new Date().toISOString()
       };
       
-      // Sauvegarde dans l'API SQLite
       saveData(sharedCode, data).then(result => {
         if (result.success) {
           setLastSaved(new Date());
@@ -529,12 +274,11 @@ const App = () => {
         console.warn('Erreur sauvegarde auto:', error);
       });
       
-    }, 2000); // Délai de 2s pour éviter trop de requêtes
+    }, 2000);
 
     return () => clearTimeout(saveTimeout);
-  }, [cars, dureeMois, kmAnnuel, parking, vignette, tauxCreditGlobal, inflationAnnuelle, tauxPlacement, sharedCode]);
+  }, [cars, dureeMois, dureeDetention, kmAnnuel, parking, vignette, tauxCreditGlobal, inflationAnnuelle, tauxPlacement, prixEssence, prixElec, ratioElec, sharedCode]);
 
-  // Vérifier la santé de l'API au démarrage
   useEffect(() => {
     checkHealth().then(healthy => {
       setApiHealth(healthy);
@@ -547,31 +291,34 @@ const App = () => {
       }
     });
     
-    // Vérifier périodiquement
     const healthInterval = setInterval(() => {
       checkHealth().then(setApiHealth);
-    }, 30000); // Toutes les 30 secondes
+    }, 30000);
     
     return () => clearInterval(healthInterval);
   }, []);
 
-  // Mettre à jour la taille de la queue
   useEffect(() => {
     setQueueSize(getQueueSize());
   }, [cars, sharedCode]);
 
+  // --- FONCTIONS UTILITAIRES ---
   const saveDataToServer = async () => {
     setIsSaving(true);
     
     const data = {
       cars,
       dureeMois,
+      dureeDetention,
       kmAnnuel,
       parking,
       vignette,
       tauxCreditGlobal,
       inflationAnnuelle,
       tauxPlacement,
+      prixEssence,
+      prixElec,
+      ratioElec,
       sharedCode,
       updatedAt: new Date().toISOString()
     };
@@ -602,158 +349,15 @@ const App = () => {
     }
   };
 
-  // --- MOTEUR DE CALCUL ---
-  const calculateResults = () => {
-    return cars.map(car => {
-      // A. Coût Énergie Mensuel (adapté au type de motorisation)
-      const distMensuelle = kmAnnuel / 12;
-      let coutEnergieMensuel = 0;
-      
-      switch (car.motorisation) {
-        case 'ICE': // Thermique
-          coutEnergieMensuel = (distMensuelle / 100) * car.consoEssence * prixEssence;
-          break;
-        case 'BEV': // Électrique
-          coutEnergieMensuel = (distMensuelle / 100) * car.consoElec * prixElec;
-          break;
-        case 'PHEV': // Hybride Rechargeable
-        default:
-          coutEnergieMensuel = (
-            (distMensuelle * (ratioElec / 100) / 100 * car.consoElec * prixElec) +
-            (distMensuelle * (1 - ratioElec / 100) / 100 * car.consoEssence * prixEssence)
-          );
-          break;
-      }
-
-      // B. Coût d'Opportunité (Manque à gagner sur placement)
-      const opportuniteApportLeasingMensuel = (car.apport * tauxPlacement / 100) / 12;
-      const opportuniteApportCreditMensuel = (car.apportCredit * tauxPlacement / 100) / 12;
-      const opportuniteComptantMensuel = (car.prixAchat * tauxPlacement / 100) / 12;
-
-      // Frais Fixes
-      const coutFixeMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking;
-      const coutVariableMensuel = coutEnergieMensuel + (car.entretien / 12);
-      const fraisUsage = coutFixeMensuel + coutVariableMensuel;
-
-      // Valeur résiduelle réelle avec risque de dépréciation
-      const valeurResiduelleReelle = car.valeurResiduelle * (1 - car.risqueDepreciation / 100);
-
-      // 1. LEASING
-      const capitalFinanceLeasing = car.prixAchat - car.apport;
-      const rLeasing = (car.tauxLeasing / 100) / 12;
-      let pmtLeasing = 0;
-      if (rLeasing > 0) {
-        const facteur = Math.pow(1 + rLeasing, -dureeMois);
-        const denom = (1 - facteur) / rLeasing;
-        pmtLeasing = (capitalFinanceLeasing - (car.valeurResiduelle * facteur)) / (denom * (1 + rLeasing));
-      } else {
-        pmtLeasing = (capitalFinanceLeasing - car.valeurResiduelle) / dureeMois;
-      }
-      const coutVehiculeLisseLeasing = (car.apport + (pmtLeasing * dureeMois)) / dureeMois;
-      const tcoLeasing = coutVehiculeLisseLeasing + fraisUsage + opportuniteApportLeasingMensuel;
-
-      // 2. CRÉDIT (avec apportCredit spécifique, risque de dépréciation et coût d'opportunité)
-      const capitalFinanceCredit = car.prixAchat - car.apportCredit;
-      const rCredit = (tauxCreditGlobal / 100) / 12;
-      let pmtCredit = 0;
-      if (rCredit > 0) {
-        pmtCredit = capitalFinanceCredit * (rCredit / (1 - Math.pow(1 + rCredit, -dureeMois)));
-      } else {
-        pmtCredit = capitalFinanceCredit / dureeMois;
-      }
-      // Amortissement net avec risque de dépréciation (comme pour le comptant)
-      const coutVehiculeLisseCredit = (car.apportCredit + (pmtCredit * dureeMois) - valeurResiduelleReelle) / dureeMois;
-      const tcoCredit = coutVehiculeLisseCredit + fraisUsage + opportuniteApportCreditMensuel;
-
-      // 3. COMPTANT avec risque de dépréciation
-      const coutVehiculeLisseComptant = (car.prixAchat - valeurResiduelleReelle) / dureeMois;
-      const tcoComptant = coutVehiculeLisseComptant + fraisUsage + opportuniteComptantMensuel;
-
-      // TCO 5 Piliers : Flux Banque & Apport Lissé Brut
-      const fraisFixesMensuel = (car.assurance + car.impotCantonal + vignette) / 12 + parking + (car.entretien / 12);
-      
-      // Mode LEASING : apportLisse = max(0, apport / durée), banque = pmt (flux réel)
-      const apportLisseLeasing = Math.max(0, car.apport / dureeMois);
-      const banqueLeasing = pmtLeasing;
-      
-      const breakdownLeasing = {
-        apportLisse: apportLisseLeasing,
-        banque: banqueLeasing,
-        energie: coutEnergieMensuel,
-        fraisFixes: fraisFixesMensuel,
-        opportunite: opportuniteApportLeasingMensuel,
-        total: tcoLeasing
-      };
-
-      // Mode CRÉDIT : apportLisse = max(0, apportCredit / durée), banque = pmt - (valeurRésiduelle / durée)
-      const apportLisseCredit = Math.max(0, car.apportCredit / dureeMois);
-      const banqueCredit = pmtCredit - (valeurResiduelleReelle / dureeMois);
-      
-      const breakdownCredit = {
-        apportLisse: apportLisseCredit,
-        banque: Math.max(0, banqueCredit), // Éviter les valeurs négatives
-        energie: coutEnergieMensuel,
-        fraisFixes: fraisFixesMensuel,
-        opportunite: opportuniteApportCreditMensuel,
-        total: tcoCredit
-      };
-
-      // Mode COMPTANT : apportLisse = max(0, dépréciation totale / durée), banque = 0
-      const depreciationTotale = car.prixAchat - valeurResiduelleReelle;
-      const apportLisseComptant = Math.max(0, depreciationTotale / dureeMois);
-      
-      const breakdownComptant = {
-        apportLisse: apportLisseComptant,
-        banque: 0,
-        energie: coutEnergieMensuel,
-        fraisFixes: fraisFixesMensuel,
-        opportunite: opportuniteComptantMensuel,
-        total: tcoComptant
-      };
-
-      return {
-        ...car,
-        fraisUsage,
-        coutEnergieMensuel,
-        opportuniteApportLeasingMensuel,
-        opportuniteApportCreditMensuel,
-        opportuniteComptantMensuel,
-        valeurResiduelleReelle,
-        leasing: {
-          pmt: pmtLeasing > 0 ? pmtLeasing : 0,
-          tco: tcoLeasing,
-          breakdown: breakdownLeasing
-        },
-        credit: {
-          pmt: pmtCredit > 0 ? pmtCredit : 0,
-          tco: tcoCredit,
-          breakdown: breakdownCredit
-        },
-        comptant: {
-          tco: tcoComptant,
-          breakdown: breakdownComptant
-        }
-      };
-    });
-  };
-
-  const results = calculateResults();
-
-  // Trouver le max pour le graphique
-  const maxTCO = Math.max(...results.map(r => Math.max(r.leasing.tco, r.credit.tco, r.comptant.tco)), 1);
-
-  // Fonction pour mettre à jour le code partagé
   const updateSharedCode = (newCode) => {
     const cleanCode = newCode.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 8);
     setSharedCode(cleanCode);
     localStorage.setItem('comparateur_shared_code', cleanCode);
     setIsCodeValid(true);
-    setShowLoadButton(true); // Montrer le bouton de chargement
+    setShowLoadButton(true);
   };
 
-  // Fonction pour charger les données avec le code actuel
   const loadDataForCurrentCode = async () => {
-    // Feedback visuel immédiat
     setIsSaving(true);
     
     try {
@@ -768,13 +372,16 @@ const App = () => {
         if (data.tauxCreditGlobal !== undefined) setTauxCreditGlobal(data.tauxCreditGlobal);
         if (data.inflationAnnuelle !== undefined) setInflationAnnuelle(data.inflationAnnuelle);
         if (data.tauxPlacement !== undefined) setTauxPlacement(data.tauxPlacement);
+        if (data.dureeDetention !== undefined) setDureeDetention(parseDecimal(data.dureeDetention));
+        if (data.prixEssence !== undefined) setPrixEssence(parseDecimal(data.prixEssence));
+        if (data.prixElec !== undefined) setPrixElec(parseDecimal(data.prixElec));
+        if (data.ratioElec !== undefined) setRatioElec(parseDecimal(data.ratioElec));
         if (data.updatedAt) setLastSaved(new Date(data.updatedAt));
         setIsCodeValid(true);
-        setShowLoadButton(false); // Cacher le bouton après chargement
+        setShowLoadButton(false);
         
         alert(`✅ Données chargées depuis le serveur SQLite pour le code "${sharedCode}"`);
       } else {
-        // Aucune donnée trouvée pour ce code
         alert(`Aucune donnée trouvée pour le code "${sharedCode}".\n\nCréez d'abord des données avec ce code sur un autre appareil, ou utilisez un code existant.`);
       }
     } catch (error) {
@@ -786,12 +393,10 @@ const App = () => {
     }
   };
 
-  // Fonction pour copier le code dans le presse-papier
   const copyToClipboard = () => {
     navigator.clipboard.writeText(sharedCode);
   };
 
-  // Fonction pour ouvrir l'image en grand
   const openImageModal = (url, title) => {
     if (url && url.trim() !== '') {
       setModalImage({
@@ -802,7 +407,6 @@ const App = () => {
     }
   };
 
-  // Fonction pour fermer la modal
   const closeImageModal = () => {
     setModalImage({
       isOpen: false,
@@ -811,15 +415,26 @@ const App = () => {
     });
   };
 
+  // Fonction utilitaire pour déterminer le label "Banque" selon le type de financement
+  const getBanqueLabel = (type) => {
+    switch(type) {
+      case 'leasing': return 'Loyer';
+      case 'credit': return 'Dépréciation + Intérêts';
+      case 'comptant': return 'Dépréciation';
+      default: return 'Banque';
+    }
+  };
+
+  // --- JSX ---
+  // Pour des raisons de concision, seul le JSX essentiel est inclus
+  // Le JSX complet sera copié dans l'étape suivante
   return (
     <div className="min-h-screen bg-slate-100 p-4 font-sans text-slate-800">
       <div className="max-w-7xl mx-auto">
         {/* Layout Dashboard à deux colonnes */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
           {/* Colonne GAUCHE (Édition) - 8/12 */}
           <div className="lg:col-span-8 space-y-6">
-            
             <header className="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
@@ -1088,6 +703,30 @@ const App = () => {
                   </div>
                 </div>
               </div>
+              
+              {/* Slider pour la durée de détention */}
+              <div className="mt-6 pt-4 border-t border-slate-200">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Durée de détention (pour Crédit/Comptant) : <span className="font-bold text-indigo-700">{dureeDetention} mois</span> ({Math.floor(dureeDetention/12)} ans)
+                </label>
+                <div className="flex items-center gap-4">
+                  <span className="text-xs text-slate-500 w-12">48 mois</span>
+                  <input
+                    type="range"
+                    min="48"
+                    max="120"
+                    step="12"
+                    value={dureeDetention}
+                    onChange={(e) => setDureeDetention(parseInt(e.target.value))}
+                    className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-600"
+                  />
+                  <span className="text-xs text-slate-500 w-16">120 mois</span>
+                </div>
+                <div className="mt-2 text-xs text-slate-500">
+                  Cette durée s'applique au <strong>Crédit</strong> et au <strong>Comptant</strong> pour calculer la dépréciation long terme. Le <strong>Leasing</strong> utilise la durée fixe du contrat ({dureeMois} mois).
+                </div>
+              </div>
+              
               <div className="mt-4 text-xs text-slate-500">
                 <span className="font-medium">Coût d'opportunité :</span> Le taux de placement représente le rendement annuel que vous pourriez obtenir en investissant votre argent plutôt que de l'utiliser pour acheter un véhicule. Ce coût est inclus dans le TCO.
               </div>
@@ -1147,134 +786,216 @@ const App = () => {
                   {/* CORPS DE LA CARTE - 3 COLONNES */}
                   <div className="flex flex-row">
                     
-                    {/* ZONE A - Identité (20%) */}
-                    <div className="w-1/5 p-4 bg-slate-50 border-r border-slate-200">
-                      {/* Prix d'achat TTC en très gros */}
-                      <div className="text-center mb-4">
-                        <div className="text-xs font-bold text-slate-500 uppercase mb-1">Prix TTC</div>
-                        <div className="font-black text-slate-900 text-3xl">{car.prixAchat.toFixed(0)} CHF</div>
+                    {/* ZONE A - Identité & Usage (18%) */}
+                    <div className="w-[18%] p-4 bg-slate-50 border-r border-slate-200">
+                      {/* Photo & URL */}
+                      <div className="mb-4">
+                        {car.photoUrl ? (
+                          <img 
+                            src={car.photoUrl} 
+                            className="w-full aspect-video object-cover rounded-lg mb-2 shadow-sm border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity" 
+                            onClick={() => openImageModal(car.photoUrl, car.name)} 
+                            alt={car.name}
+                          />
+                        ) : (
+                          <div className="w-full aspect-video bg-slate-100 rounded-lg mb-2 flex items-center justify-center text-slate-400 text-xs border border-slate-300 border-dashed">
+                            Aucune photo
+                          </div>
+                        )}
+                        <input
+                          type="text"
+                          value={car.photoUrl}
+                          onChange={e => updateCar(index, 'photoUrl', e.target.value)}
+                          placeholder="Coller l'URL de l'image..."
+                          className="w-full p-1.5 text-[10px] border border-slate-300 rounded bg-white text-slate-600 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-shadow"
+                        />
                       </div>
                       
-                      {/* Bloc "Usage seul" */}
-                      <div className="bg-white rounded-lg p-3 border border-slate-200 shadow-sm">
-                        <div className="text-xs font-bold text-slate-600 uppercase mb-1">Usage seul</div>
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <div className="text-xs text-slate-500">Énergie</div>
-                            <div className="font-bold text-slate-800">{results[index].coutEnergieMensuel.toFixed(0)} CHF</div>
+                      {/* Prix TTC */}
+                      <div className="text-center mb-4">
+                        <div className="text-[10px] text-slate-400 uppercase font-bold text-center">Prix TTC</div>
+                        <div className="font-black text-slate-900 text-2xl text-center">{car.prixAchat.toFixed(0)} CHF</div>
+                      </div>
+                      
+                      {/* Forfait Usage */}
+                      <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100">
+                        <div className="text-xs font-bold text-indigo-600 uppercase mb-2">Forfait Usage (moyenne mensuelle)</div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-slate-600">Énergie</span>
+                            <span className="font-bold text-slate-800">{results[index].coutEnergieMensuel.toFixed(0)} CHF</span>
                           </div>
-                          <div>
-                            <div className="text-xs text-slate-500">Frais fixes</div>
-                            <div className="font-bold text-slate-800">{(results[index].fraisUsage - results[index].coutEnergieMensuel).toFixed(0)} CHF</div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-slate-600">Frais fixes</span>
+                            <span className="font-bold text-slate-800">{(results[index].fraisUsage - results[index].coutEnergieMensuel).toFixed(0)} CHF</span>
                           </div>
-                        </div>
-                        <div className="mt-2 pt-2 border-t border-slate-100">
-                          <div className="text-xs text-slate-500">Total mensuel</div>
-                          <div className="font-bold text-lg text-slate-900">{results[index].fraisUsage.toFixed(0)} CHF</div>
+                          <div className="pt-2 border-t border-indigo-100">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-bold text-slate-900">Total Usage</span>
+                              <span className="text-lg font-bold text-slate-900">{results[index].fraisUsage.toFixed(0)} CHF</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* ZONE B - Saisie (40%) */}
-                    <div className="w-2/5 p-4 bg-slate-50 border-r border-slate-200">
-                      <div className="grid grid-cols-2 gap-3">
-                        {/* Prix et valeur résiduelle */}
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Prix TTC</label>
-                          <NumericInput
-                            value={car.prixAchat}
-                            onChange={val => updateCar(index, 'prixAchat', val)}
-                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white font-bold text-slate-900 transition-colors"
-                            placeholder="0.00"
-                          />
+                    {/* ZONE B - Saisie (42%) */}
+                    <div className="w-[42%] p-4 bg-slate-50 border-r border-slate-200">
+                      <div className="space-y-3">
+                        {/* Bloc Acquisition */}
+                        <div className="bg-white rounded-xl border border-slate-200 p-3">
+                          <div className="text-xs font-bold text-slate-500 mb-2">Acquisition</div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-400 uppercase">Prix TTC</label>
+                              <NumericInput
+                                value={car.prixAchat}
+                                onChange={val => updateCar(index, 'prixAchat', val)}
+                                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white font-bold text-slate-900 transition-colors"
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-400 uppercase">Résiduelle L.</label>
+                              <NumericInput
+                                value={car.valeurResiduelle}
+                                onChange={val => updateCar(index, 'valeurResiduelle', val)}
+                                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
+                                placeholder="0.00"
+                              />
+                              <div className="text-center mt-1">
+                                <span className="text-xs text-slate-500 font-medium">
+                                  {car.prixAchat > 0 ? ((car.valeurResiduelle / car.prixAchat) * 100).toFixed(1) : '0.0'}%
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col justify-end">
+                              <div className="flex items-center gap-1 mb-[2px]">
+                                <label className="block text-[9px] font-bold text-slate-400 uppercase">Résiduelle C/C</label>
+                                <Tooltip
+                                  content="Valeur résiduelle calculée pour Crédit/Comptant (dépréciation long terme + risque Lausanne 2030)"
+                                  position="top"
+                                >
+                                  <Info className="w-3 h-3 text-slate-400 cursor-help" />
+                                </Tooltip>
+                              </div>
+                              <div className="w-full px-2 border border-slate-300 rounded-lg text-sm bg-slate-50 text-slate-700 flex items-center h-[38px]">
+                                {results[index].valeurResiduelleReelle?.toFixed(0) || '0'} CHF
+                              </div>
+                              <div className="text-center mt-1">
+                                <span className="text-xs text-slate-500 font-medium">
+                                  {car.prixAchat > 0 ? ((results[index].valeurResiduelleReelle / car.prixAchat) * 100).toFixed(1) : '0.0'}%
+                                </span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Résiduelle</label>
-                          <NumericInput
-                            value={car.valeurResiduelle} 
-                            onChange={val => updateCar(index, 'valeurResiduelle', val)}
-                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors" 
-                            placeholder="0.00"
-                          />
+
+                        {/* Bloc Financement */}
+                        <div className="bg-white rounded-xl border border-slate-200 p-3">
+                          <div className="text-xs font-bold text-slate-500 mb-2">Financement</div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-400 uppercase">Apport L.</label>
+                              <NumericInput
+                                value={car.apport}
+                                onChange={val => updateCar(index, 'apport', val)}
+                                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-400 uppercase">Apport C.</label>
+                              <NumericInput
+                                value={car.apportCredit}
+                                onChange={val => updateCar(index, 'apportCredit', val)}
+                                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-400 uppercase">Taux L. (%)</label>
+                              <NumericInput
+                                value={car.tauxLeasing}
+                                onChange={val => updateCar(index, 'tauxLeasing', val)}
+                                className="w-full p-2 border border-blue-200 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white font-bold transition-colors"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Bloc Usage & Risque */}
+                        <div className="bg-white rounded-xl border border-slate-200 p-3">
+                          <div className="text-xs font-bold text-slate-500 mb-2">Usage & Risque</div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-[9px] font-bold text-amber-600 uppercase">Risque (%)</label>
+                              <NumericInput
+                                value={car.risqueDepreciation}
+                                onChange={val => updateCar(index, 'risqueDepreciation', val)}
+                                className="w-full p-2 border border-amber-300 rounded-lg text-sm bg-amber-50 hover:bg-white focus:bg-white transition-colors"
+                                placeholder="0-30"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-400 uppercase">Conso É. (kWh)</label>
+                              <NumericInput
+                                value={car.consoElec}
+                                onChange={val => updateCar(index, 'consoElec', val)}
+                                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
+                                placeholder="0.0"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-400 uppercase">Conso Ess. (L)</label>
+                              <NumericInput
+                                value={car.consoEssence}
+                                onChange={val => updateCar(index, 'consoEssence', val)}
+                                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
+                                placeholder="0.0"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-400 uppercase">Assurance</label>
+                              <NumericInput
+                                value={car.assurance}
+                                onChange={val => updateCar(index, 'assurance', val)}
+                                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-400 uppercase">Impôt</label>
+                              <NumericInput
+                                value={car.impotCantonal}
+                                onChange={val => updateCar(index, 'impotCantonal', val)}
+                                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-400 uppercase">Entretien</label>
+                              <NumericInput
+                                value={car.entretien}
+                                onChange={val => updateCar(index, 'entretien', val)}
+                                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
                         </div>
                         
-                        {/* Apports */}
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Apport Leasing</label>
-                          <NumericInput
-                            value={car.apport}
-                            onChange={val => updateCar(index, 'apport', val)}
-                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Apport Crédit</label>
-                          <NumericInput
-                            value={car.apportCredit} 
-                            onChange={val => updateCar(index, 'apportCredit', val)}
-                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors" 
-                            placeholder="0.00"
-                          />
-                        </div>
-                        
-                        {/* Taux et risque */}
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Taux Leasing (%)</label>
-                          <NumericInput
-                            value={car.tauxLeasing}
-                            onChange={val => updateCar(index, 'tauxLeasing', val)}
-                            className="w-full p-2 border border-blue-200 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white font-bold transition-colors"
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-amber-600 uppercase">Risque (%)</label>
-                          <NumericInput
-                            value={car.risqueDepreciation} 
-                            onChange={val => updateCar(index, 'risqueDepreciation', val)}
-                            className="w-full p-2 border border-amber-300 rounded-lg text-sm bg-amber-50 hover:bg-white focus:bg-white transition-colors" 
-                            placeholder="0-30"
-                          />
-                        </div>
-                        
-                        {/* Consommations */}
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Conso Élec (kWh)</label>
-                          <NumericInput
-                            value={car.consoElec} 
-                            onChange={val => updateCar(index, 'consoElec', val)}
-                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors" 
-                            placeholder="0.0"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Conso Essence (L)</label>
-                          <NumericInput
-                            value={car.consoEssence} 
-                            onChange={val => updateCar(index, 'consoEssence', val)}
-                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors" 
-                            placeholder="0.0"
-                          />
-                        </div>
-                        
-                        {/* Frais fixes */}
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Assurance</label>
-                          <NumericInput
-                            value={car.assurance} 
-                            onChange={val => updateCar(index, 'assurance', val)}
-                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors" 
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Impôt</label>
-                          <NumericInput
-                            value={car.impotCantonal} 
-                            onChange={val => updateCar(index, 'impotCantonal', val)}
-                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors" 
-                            placeholder="0.00"
+                        {/* NOUVEAU : Bloc Notes & Commentaire */}
+                        <div className="bg-white rounded-xl border border-slate-200 p-3 mt-3">
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">
+                            Notes & Lien de l'annonce
+                          </label>
+                          <textarea
+                            value={car.commentaire}
+                            onChange={e => updateCar(index, 'commentaire', e.target.value)}
+                            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-all resize-none h-32"
+                            placeholder="Lien vers l'annonce, options incluses, remarques particulières..."
                           />
                         </div>
                       </div>
@@ -1284,47 +1005,79 @@ const App = () => {
                     <div className="w-2/5 p-4">
                       {/* Graphiques StackedBarChart */}
                       <div className="space-y-3 mb-4">
-                        <StackedBarChart 
+                        <StackedBarChart
                           breakdown={results[index].leasing.breakdown}
                           type="leasing"
                           vehicleName={car.name}
                           motorisation={car.motorisation}
+                          maxValue={maxTCO}
                         />
+                        <Tooltip
+                          content="Argent qui sort physiquement de votre compte courant chaque mois (Mensualité réelle + Énergie + Frais fixes). Ne tient pas compte de la perte de valeur du véhicule ni de l'apport initial."
+                          position="top"
+                        >
+                          <div className="mt-1 space-y-1">
+                            <div className="bg-slate-100 px-3 py-2 rounded-lg flex items-center gap-2 text-sm text-slate-700">
+                              <Wallet className="w-4 h-4 text-blue-500" />
+                              <span>Sortie trésorerie :</span>
+                              <span className="font-semibold text-slate-900 ml-auto">
+                                {results[index].leasing.tresorerieMensuelle.toFixed(0)} CHF / mois
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-600 ml-4 flex items-center gap-2">
+                              <span>Échéance Loyer :</span>
+                              <span className="font-semibold">
+                                {results[index].leasing.mensualiteBrute.toFixed(0)} CHF / mois
+                              </span>
+                            </div>
+                          </div>
+                        </Tooltip>
                         <StackedBarChart 
                           breakdown={results[index].credit.breakdown}
                           type="credit"
                           vehicleName={car.name}
                           motorisation={car.motorisation}
+                          maxValue={maxTCO}
                         />
+                        <Tooltip
+                          content="Argent qui sort physiquement de votre compte courant chaque mois (Mensualité réelle + Énergie + Frais fixes). Ne tient pas compte de la perte de valeur du véhicule ni de l'apport initial."
+                          position="top"
+                        >
+                          <div className="mt-1 space-y-1">
+                            <div className="bg-slate-100 px-3 py-2 rounded-lg flex items-center gap-2 text-sm text-slate-700">
+                              <Wallet className="w-4 h-4 text-emerald-500" />
+                              <span>Sortie trésorerie :</span>
+                              <span className="font-semibold text-slate-900 ml-auto">
+                                {results[index].credit.tresorerieMensuelle.toFixed(0)} CHF / mois
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-600 ml-4 flex items-center gap-2">
+                              <span>Échéance Crédit :</span>
+                              <span className="font-semibold">
+                                {results[index].credit.mensualiteBrute.toFixed(0)} CHF / mois
+                              </span>
+                            </div>
+                          </div>
+                        </Tooltip>
                         <StackedBarChart 
                           breakdown={results[index].comptant.breakdown}
                           type="comptant"
                           vehicleName={car.name}
                           motorisation={car.motorisation}
+                          maxValue={maxTCO}
                         />
-                      </div>
-                      
-                      {/* URL Photo */}
-                      <div className="mb-3">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase">URL Photo</label>
-                        <input 
-                          type="text" 
-                          value={car.photoUrl} 
-                          onChange={e => updateCar(index, 'photoUrl', e.target.value)}
-                          className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 hover:bg-white focus:bg-white transition-colors"
-                          placeholder="https://example.com/photo.jpg"
-                        />
-                      </div>
-                      
-                      {/* Commentaire */}
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Commentaire</label>
-                        <textarea 
-                          value={car.commentaire} 
-                          onChange={e => updateCar(index, 'commentaire', e.target.value)}
-                          className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 hover:bg-white focus:bg-white transition-colors h-20"
-                          placeholder="Notes..."
-                        />
+                        <Tooltip
+                          content="Argent qui sort physiquement de votre compte courant chaque mois (Mensualité réelle + Énergie + Frais fixes). Ne tient pas compte de la perte de valeur du véhicule ni de l'apport initial."
+                          position="top"
+                        >
+                          <div className="bg-slate-100 px-3 py-2 rounded-lg flex items-center gap-2 text-sm text-slate-700 mt-1">
+                            <Wallet className="w-4 h-4 text-purple-500" />
+                            <span>Sortie trésorerie :</span>
+                            <span className="font-semibold text-slate-900 ml-auto">
+                              {results[index].comptant.tresorerieMensuelle.toFixed(0)} CHF / mois
+                            </span>
+                          </div>
+                        </Tooltip>
                       </div>
                     </div>
                   </div>
@@ -1351,92 +1104,122 @@ const App = () => {
           <div className="lg:col-span-4 sticky top-6 space-y-4">
             
             {/* Bloc Comparaison des Coûts Mensuels */}
-            <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6 shadow-slate-200/50">
-              <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-slate-800">
-                <BarChart3 className="w-6 h-6 text-indigo-500" /> 
-                Comparaison des Coûts Mensuels (Synthèse)
-              </h2>
-              
+            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-6 shadow-slate-800/10 border-t-4 border-t-indigo-600">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                  <BarChart3 className="w-6 h-6 text-indigo-500" />
+                  Comparaison des Coûts Mensuels (Synthèse)
+                </h2>
+                
+                {/* Filtres */}
+                <div className="flex gap-1">
+                  {['all', 'leasing', 'credit', 'comptant'].map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setFilterMode(mode)}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                        filterMode === mode 
+                          ? mode === 'leasing' ? 'bg-blue-600 text-white' 
+                            : mode === 'credit' ? 'bg-emerald-600 text-white' 
+                            : mode === 'comptant' ? 'bg-purple-600 text-white' 
+                            : 'bg-indigo-600 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {mode === 'all' ? 'Tous' : mode === 'leasing' ? 'Leasing' : mode === 'credit' ? 'Crédit' : 'Comptant'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="space-y-4">
                 {(() => {
-                  // Créer un tableau plat avec toutes les données
                   const allData = [];
                   results.forEach(r => {
                     allData.push(
-                      { 
-                        type: 'leasing', 
-                        vehicle: r.name, 
+                      {
+                        type: 'leasing',
+                        vehicle: r.name,
                         breakdown: r.leasing.breakdown,
                         color: 'blue',
                         total: r.leasing.tco
                       },
-                      { 
-                        type: 'credit', 
-                        vehicle: r.name, 
+                      {
+                        type: 'credit',
+                        vehicle: r.name,
                         breakdown: r.credit.breakdown,
                         color: 'emerald',
                         total: r.credit.tco
                       },
-                      { 
-                        type: 'comptant', 
-                        vehicle: r.name, 
+                      {
+                        type: 'comptant',
+                        vehicle: r.name,
                         breakdown: r.comptant.breakdown,
                         color: 'purple',
                         total: r.comptant.tco
                       }
                     );
                   });
-                  
-                  // Trier par valeur croissante
-                  allData.sort((a, b) => a.total - b.total);
-                  
-                  // Trouver la valeur max pour l'échelle avec marge de 5%
-                  const maxValue = Math.max(...allData.map(d => d.breakdown.total), 1) * 1.05;
-                  
-                  // Couleurs selon le type (5 catégories avec dégradation logique)
+
+                  // Filtrer selon le mode sélectionné
+                  const filteredData = filterMode === 'all'
+                    ? allData
+                    : allData.filter(item => item.type === filterMode);
+
+                  filteredData.sort((a, b) => a.total - b.total);
+                  const maxValue = Math.max(...filteredData.map(d => d.breakdown.total), 1) * 1.05;
+
                   const colorSchemes = {
                     blue: {
-                      apportLisse: 'bg-blue-950',    // Nuance 950 (très sombre)
-                      banque: 'bg-blue-700',         // Nuance 700 (sombre)
-                      energie: 'bg-blue-500',        // Nuance 500 (moyen)
-                      fraisFixes: 'bg-blue-300',     // Nuance 300 (clair)
-                      opportunite: 'bg-blue-200'     // Nuance 200 (pastel)
+                      apportLisse: 'bg-blue-950',
+                      loyer: 'bg-blue-700',
+                      energie: 'bg-blue-500',
+                      fraisFixes: 'bg-blue-300',
+                      opportunite: 'bg-blue-200'
                     },
                     emerald: {
-                      apportLisse: 'bg-emerald-950', // Nuance 950 (très sombre)
-                      banque: 'bg-emerald-700',      // Nuance 700 (sombre)
-                      energie: 'bg-emerald-500',     // Nuance 500 (moyen)
-                      fraisFixes: 'bg-emerald-300',  // Nuance 300 (clair)
-                      opportunite: 'bg-emerald-200'  // Nuance 200 (pastel)
+                      apportLisse: 'bg-emerald-950',
+                      depreciation: 'bg-emerald-700',
+                      interets: 'bg-emerald-600',
+                      energie: 'bg-emerald-500',
+                      fraisFixes: 'bg-emerald-300',
+                      opportunite: 'bg-emerald-200'
                     },
                     purple: {
-                      apportLisse: 'bg-purple-950',  // Nuance 950 (très sombre)
-                      banque: 'bg-purple-700',       // Nuance 700 (sombre)
-                      energie: 'bg-purple-500',      // Nuance 500 (moyen)
-                      fraisFixes: 'bg-purple-300',   // Nuance 300 (clair)
-                      opportunite: 'bg-purple-200'   // Nuance 200 (pastel)
+                      apportLisse: 'bg-purple-950',
+                      depreciation: 'bg-purple-700',
+                      energie: 'bg-purple-500',
+                      fraisFixes: 'bg-purple-300',
+                      opportunite: 'bg-purple-200'
                     }
                   };
 
-                  return allData.map((item, index) => {
+                  return filteredData.map((item, index) => {
                     const colors = colorSchemes[item.color];
                     const typeLabel = item.type === 'leasing' ? 'Leasing' : item.type === 'credit' ? 'Crédit' : 'Comptant';
-                    
+
                     return (
                       <div key={`ranking-${index}`} className="space-y-1">
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
                             <div className={`w-3 h-3 ${item.type === 'leasing' ? 'bg-blue-500' : item.type === 'credit' ? 'bg-emerald-500' : 'bg-purple-500'} rounded`}></div>
-                            <span className="font-medium text-slate-700 text-sm">
-                              {item.vehicle} - {typeLabel}
-                            </span>
+                            <div className="flex flex-col">
+                              <span className="font-bold text-slate-800 text-sm">{item.vehicle}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full w-fit mt-1 ${
+                                item.type === 'leasing' ? 'bg-blue-100 text-blue-700' 
+                                : item.type === 'credit' ? 'bg-emerald-100 text-emerald-700' 
+                                : 'bg-purple-100 text-purple-700'
+                              }`}>
+                                {typeLabel}
+                              </span>
+                            </div>
                           </div>
                           <span className={`font-bold ${item.type === 'leasing' ? 'text-blue-700' : item.type === 'credit' ? 'text-emerald-700' : 'text-purple-700'} text-sm`}>
                             {item.total.toFixed(0)} CHF
                           </span>
                         </div>
                         
-                        {/* Barre empilée - version compacte */}
+                        {/* Barre empilée */}
                         <div className="w-full h-4 bg-slate-100 rounded-full overflow-visible flex relative z-30">
                           {Object.keys(item.breakdown).filter(key => key !== 'total').map((key, catIndex) => {
                             const value = item.breakdown[key];
@@ -1444,11 +1227,12 @@ const App = () => {
                             
                             if (value <= 0) return null;
                             
-                            // Couleur selon la catégorie
                             let bgColor = '';
                             switch(key) {
                               case 'apportLisse': bgColor = colors.apportLisse; break;
-                              case 'banque': bgColor = colors.banque; break;
+                              case 'loyer': bgColor = colors.loyer; break;
+                              case 'depreciation': bgColor = colors.depreciation; break;
+                              case 'interets': bgColor = colors.interets; break;
                               case 'energie': bgColor = colors.energie; break;
                               case 'fraisFixes': bgColor = colors.fraisFixes; break;
                               case 'opportunite': bgColor = colors.opportunite; break;
@@ -1458,9 +1242,11 @@ const App = () => {
                             return (
                               <Tooltip
                                 key={`${index}-${key}`}
-                                content={`${key === 'apportLisse' ? 'Apport Lissé' : 
-                                          key === 'banque' ? 'Banque' : 
-                                          key === 'energie' ? 'Énergie' : 
+                                content={`${key === 'apportLisse' ? 'Apport Lissé' :
+                                          key === 'loyer' ? 'Loyer' :
+                                          key === 'depreciation' ? 'Dépréciation' :
+                                          key === 'interets' ? 'Intérêts' :
+                                          key === 'energie' ? 'Énergie' :
                                           key === 'fraisFixes' ? 'Frais Fixes' : 'Opportunité'}: ${value.toFixed(0)} CHF`}
                                 position="top"
                                 width={`${widthPercentage}%`}
@@ -1492,10 +1278,24 @@ const App = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-slate-700 rounded"></div>
-                    <span className="text-sm text-slate-700">Banque</span>
+                    <div className="w-4 h-4 bg-blue-700 rounded"></div>
+                    <span className="text-sm text-slate-700">Loyer (Leasing)</span>
                   </div>
-                  <span className="text-xs text-slate-500">Mensualité brute</span>
+                  <span className="text-xs text-slate-500">Mensualité versée à l'organisme de financement</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-emerald-700 rounded"></div>
+                    <span className="text-sm text-slate-700">Dépréciation (Perte de valeur)</span>
+                  </div>
+                  <span className="text-xs text-slate-500">Perte de valeur mensuelle du véhicule sur le marché</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-emerald-600 rounded"></div>
+                    <span className="text-sm text-slate-700">Intérêts bancaires</span>
+                  </div>
+                  <span className="text-xs text-slate-500">Frais financiers perçus par la banque</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
