@@ -65,7 +65,8 @@ const App = () => {
         consoElec: 0,
         consoEssence: 7.5,
         risqueDepreciation: 10,
-        entretien: 0
+        entretien: 0,
+        entretienInclusAnnees: 0
       },
       {
         id: 2,
@@ -86,7 +87,8 @@ const App = () => {
         consoElec: 15,
         consoEssence: 5.5,
         risqueDepreciation: 15,
-        entretien: 700
+        entretien: 700,
+        entretienInclusAnnees: 0
       },
       {
         id: 3,
@@ -107,7 +109,8 @@ const App = () => {
         consoElec: 18,
         consoEssence: 0,
         risqueDepreciation: 20,
-        entretien: 300
+        entretien: 300,
+        entretienInclusAnnees: 0
       }
     ];
   });
@@ -135,7 +138,7 @@ const App = () => {
     const newCars = [...cars];
     const numericFields = ['prixAchat', 'apport', 'apportCredit', 'tauxLeasing', 'valeurResiduelle', 
                           'assurance', 'impotCantonal', 'consoElec', 'consoEssence', 'risqueDepreciation', 
-                          'entretien', 'ageMois', 'kmActuel'];
+                          'entretien', 'ageMois', 'kmActuel', 'entretienInclusAnnees'];
     
     if (numericFields.includes(field)) {
       newCars[index][field] = parseDecimal(value);
@@ -187,7 +190,8 @@ const App = () => {
       consoElec: 10,
       consoEssence: 5.0,
       risqueDepreciation: 15,
-      entretien: 500
+      entretien: 500,
+      entretienInclusAnnees: 0
     }]);
   };
 
@@ -891,7 +895,7 @@ const App = () => {
                         {/* Bloc Acquisition */}
                         <div className="bg-white rounded-xl border border-slate-200 p-3">
                           <div className="text-xs font-bold text-slate-500 mb-2">Acquisition</div>
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
                             <div>
                               <label className="block text-[9px] font-bold text-slate-400 uppercase">Prix TTC</label>
                               <NumericInput
@@ -963,7 +967,7 @@ const App = () => {
                         {/* Bloc Financement */}
                         <div className="bg-white rounded-xl border border-slate-200 p-3">
                           <div className="text-xs font-bold text-slate-500 mb-2">Financement</div>
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
                             <div>
                               <label className="block text-[9px] font-bold text-slate-400 uppercase">Apport L.</label>
                               <NumericInput
@@ -997,7 +1001,7 @@ const App = () => {
                         {/* Bloc Usage & Risque */}
                         <div className="bg-white rounded-xl border border-slate-200 p-3">
                           <div className="text-xs font-bold text-slate-500 mb-2">Usage & Risque</div>
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
                             <div>
                               <label className="block text-[9px] font-bold text-amber-600 uppercase">Risque (%)</label>
                               <NumericInput
@@ -1061,6 +1065,20 @@ const App = () => {
                                 onChange={val => updateCar(index, 'entretien', val)}
                                 className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
                                 placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1 mb-[2px]">
+                                <label className="block text-[9px] font-bold text-slate-400 uppercase">Entretien inclus</label>
+                                <Tooltip content="Nombre d'années où l'entretien est offert/inclus" position="top">
+                                  <Info className="w-3 h-3 text-slate-400 cursor-help" />
+                                </Tooltip>
+                              </div>
+                              <NumericInput
+                                value={car.entretienInclusAnnees}
+                                onChange={val => updateCar(index, 'entretienInclusAnnees', val)}
+                                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 hover:bg-white focus:bg-white transition-colors"
+                                placeholder="Ans"
                               />
                             </div>
                           </div>

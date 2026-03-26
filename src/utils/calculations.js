@@ -81,7 +81,16 @@ export const calculateResults = (cars, settings) => {
       coutEnergieMensuel = coutElec + coutEssence;
     }
 
-    const fraisFixesMensuels = (car.assurance / 12) + (car.impotCantonal / 12) + (car.entretien / 12) + settings.parking + (settings.vignette / 12);
+    // Calcul de l'entretien lissé sur la durée totale de détention
+    const anneesDetention = settings.dureeDetention / 12;
+    const anneesPayantes = Math.max(0, anneesDetention - (car.entretienInclusAnnees || 0));
+
+    // Le coût total des années payantes divisé par le nombre total de mois de détention
+    const coutEntretienMensuelLisse = anneesDetention > 0 
+      ? (anneesPayantes * car.entretien) / settings.dureeDetention 
+      : 0;
+
+    const fraisFixesMensuels = (car.assurance / 12) + (car.impotCantonal / 12) + coutEntretienMensuelLisse + settings.parking + (settings.vignette / 12);
     const fraisUsage = coutEnergieMensuel + fraisFixesMensuels;
 
     // --- B. VALEUR RÉSIDUELLE RÉELLE ---
