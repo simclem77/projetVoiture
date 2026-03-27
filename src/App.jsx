@@ -1374,37 +1374,34 @@ const App = () => {
 
                     return (
                       <div key={`ranking-${index}`} className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
+                        <div className="flex justify-between items-center gap-3">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
                             <div className={`w-3 h-3 ${item.type === 'leasing' ? 'bg-blue-500' : item.type === 'credit' ? 'bg-emerald-500' : 'bg-purple-500'} rounded`}></div>
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-slate-800 text-sm leading-tight">{item.vehicle}</span>
-                                <div className="flex items-center gap-1">
-                                  <Tooltip content={energy.label} position="top">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="font-bold text-slate-800 text-sm leading-tight truncate min-w-0">
+                                {item.vehicle}
+                              </span>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <Tooltip content={energy.label} position="top">
+                                  <span className="inline-flex">
                                     <energy.Icon className={`w-3.5 h-3.5 ${energy.className}`} />
-                                  </Tooltip>
-                                  <Tooltip content={etat.label} position="top">
+                                  </span>
+                                </Tooltip>
+                                <Tooltip content={etat.label} position="top">
+                                  <span className="inline-flex">
                                     <etat.Icon className={`w-3.5 h-3.5 ${etat.className}`} />
-                                  </Tooltip>
-                                </div>
+                                  </span>
+                                </Tooltip>
                                 {item.carId && (
                                   <button
                                     onClick={() => scrollToCar(item.carId)}
-                                    className="text-slate-400 hover:text-indigo-600 transition-colors ml-1"
+                                    className="text-slate-400 hover:text-indigo-600 transition-colors"
                                     title="Voir la carte du véhicule"
                                   >
                                     🔗
                                   </button>
                                 )}
                               </div>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full w-fit mt-0.5 ${
-                                item.type === 'leasing' ? 'bg-blue-100 text-blue-700' 
-                                : item.type === 'credit' ? 'bg-emerald-100 text-emerald-700' 
-                                : 'bg-purple-100 text-purple-700'
-                              }`}>
-                                {typeLabel}
-                              </span>
                             </div>
                           </div>
                           <span className={`font-bold ${item.type === 'leasing' ? 'text-blue-700' : item.type === 'credit' ? 'text-emerald-700' : 'text-purple-700'} text-xs`}>
