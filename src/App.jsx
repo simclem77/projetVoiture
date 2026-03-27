@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle, Key, Users, Copy, X, Maximize2, Download, Database, Wifi, WifiOff, Info, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calculator, Car, Save, Cloud, CheckCircle, Wallet, Plus, Trash2, BarChart3, AlertCircle, Key, Users, Copy, X, Maximize2, Download, Database, Wifi, WifiOff, Info, TrendingUp, ChevronDown, ChevronUp, Fuel, BatteryCharging, Plug, Sparkles, Clock } from 'lucide-react';
 import { fetchData, saveData, checkHealth, processSyncQueue, getQueueSize } from './api';
 import NumericInput from './components/NumericInput';
 import Tooltip from './components/Tooltip';
@@ -21,7 +21,7 @@ const App = () => {
   const [isGuideOpen, setIsGuideOpen] = useState(true);
 
   // --- ÉTAT FILTRE PANEL LATÉRAL ---
-  const [filterMode, setFilterMode] = useState('all');
+  const [filterModes, setFilterModes] = useState(['leasing', 'credit', 'comptant']);
 
   // --- RÉFÉRENCES POUR DÉFILEMENT VERS CARTES ---
   const cardRefs = useRef({});
@@ -135,6 +135,40 @@ const App = () => {
 
   const results = useMemo(() => calculateResults(cars, settings), [cars, settings]);
   const maxTCO = useMemo(() => calculateMaxTCO(results), [results]);
+
+  const toggleFilterMode = (mode) => {
+    if (mode === 'all') {
+      setFilterModes(['leasing', 'credit', 'comptant']);
+      return;
+    }
+
+    setFilterModes(prev => {
+      const next = prev.includes(mode) ? prev.filter(m => m !== mode) : [...prev, mode];
+      return next.length === 0 ? ['leasing', 'credit', 'comptant'] : next;
+    });
+  };
+
+  const getEnergyIcon = (motorisation) => {
+    switch (motorisation) {
+      case 'ICE':
+        return { Icon: Fuel, label: 'Thermique (ICE)', className: 'text-orange-600' };
+      case 'BEV':
+        return { Icon: BatteryCharging, label: 'Électrique (BEV)', className: 'text-blue-600' };
+      case 'PHEV':
+      default:
+        return { Icon: Plug, label: 'Hybride (PHEV)', className: 'text-emerald-600' };
+    }
+  };
+
+  const getEtatIcon = (etat) => {
+    switch (etat) {
+      case 'occasion':
+        return { Icon: Clock, label: 'Occasion', className: 'text-slate-500' };
+      case 'neuf':
+      default:
+        return { Icon: Sparkles, label: 'Neuf', className: 'text-indigo-600' };
+    }
+  };
 
   // --- ACTIONS SUR LES VÉHICULES ---
   const updateCar = (index, field, value) => {
@@ -1226,21 +1260,24 @@ const App = () => {
           <div className="lg:col-span-4 sticky top-6 space-y-4">
             
             {/* Bloc Comparaison des Coûts Mensuels */}
-            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-6 shadow-slate-800/10 border-t-4 border-t-indigo-600">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                  <BarChart3 className="w-6 h-6 text-indigo-500" />
-                  Comparaison des Coûts Mensuels (Synthèse)
+            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-4 shadow-slate-800/10 border-t-4 border-t-indigo-600">
+              <div className="flex justify-between items-center mb-4 gap-3">
+                <h2 className="text-lg font-bold flex items-center gap-2 text-slate-800">
+                  <BarChart3 className="w-5 h-5 text-indigo-500" />
+                  Synthèse (mensuel)
                 </h2>
                 
                 {/* Filtres */}
-                <div className="flex gap-1">
-                  {['all', 'leasing', 'credit', 'comptant'].map(mode => (
+                <div className="flex gap-1 flex-wrap justify-end">
+                  {['all', 'leasing', 'credit', 'comptant'].map(mode => {
+                    const isAllSelected = filterModes.length === 3;
+                    const isSelected = mode === 'all' ? isAllSelected : filterModes.includes(mode);
+                    return (
                     <button
                       key={mode}
-                      onClick={() => setFilterMode(mode)}
+                      onClick={() => toggleFilterMode(mode)}
                       className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
-                        filterMode === mode 
+                        isSelected
                           ? mode === 'leasing' ? 'bg-blue-600 text-white' 
                             : mode === 'credit' ? 'bg-emerald-600 text-white' 
                             : mode === 'comptant' ? 'bg-purple-600 text-white' 
@@ -1250,15 +1287,18 @@ const App = () => {
                     >
                       {mode === 'all' ? 'Tous' : mode === 'leasing' ? 'Leasing' : mode === 'credit' ? 'Crédit' : 'Comptant'}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {(() => {
                   const allData = [];
                   results.forEach((r, resultIndex) => {
                     const carId = cars[resultIndex]?.id;
+                    const motorisation = cars[resultIndex]?.motorisation;
+                    const etat = cars[resultIndex]?.etat;
                     allData.push(
                       {
                         type: 'leasing',
@@ -1266,7 +1306,9 @@ const App = () => {
                         breakdown: r.leasing.breakdown,
                         color: 'blue',
                         total: r.leasing.tco,
-                        carId: carId
+                        carId: carId,
+                        motorisation,
+                        etat
                       },
                       {
                         type: 'credit',
@@ -1274,7 +1316,9 @@ const App = () => {
                         breakdown: r.credit.breakdown,
                         color: 'emerald',
                         total: r.credit.tco,
-                        carId: carId
+                        carId: carId,
+                        motorisation,
+                        etat
                       },
                       {
                         type: 'comptant',
@@ -1282,15 +1326,17 @@ const App = () => {
                         breakdown: r.comptant.breakdown,
                         color: 'purple',
                         total: r.comptant.tco,
-                        carId: carId
+                        carId: carId,
+                        motorisation,
+                        etat
                       }
                     );
                   });
 
                   // Filtrer selon le mode sélectionné
-                  const filteredData = filterMode === 'all'
+                  const filteredData = filterModes.length === 3
                     ? allData
-                    : allData.filter(item => item.type === filterMode);
+                    : allData.filter(item => filterModes.includes(item.type));
 
                   filteredData.sort((a, b) => a.total - b.total);
                   const maxValue = Math.max(...filteredData.map(d => d.breakdown.total), 1) * 1.05;
@@ -1323,6 +1369,8 @@ const App = () => {
                   return filteredData.map((item, index) => {
                     const colors = colorSchemes[item.color];
                     const typeLabel = item.type === 'leasing' ? 'Leasing' : item.type === 'credit' ? 'Crédit' : 'Comptant';
+                    const energy = getEnergyIcon(item.motorisation);
+                    const etat = getEtatIcon(item.etat);
 
                     return (
                       <div key={`ranking-${index}`} className="space-y-1">
@@ -1330,8 +1378,16 @@ const App = () => {
                           <div className="flex items-center gap-2">
                             <div className={`w-3 h-3 ${item.type === 'leasing' ? 'bg-blue-500' : item.type === 'credit' ? 'bg-emerald-500' : 'bg-purple-500'} rounded`}></div>
                             <div className="flex flex-col">
-                              <div className="flex items-center gap-1">
-                                <span className="font-bold text-slate-800 text-sm">{item.vehicle}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-800 text-sm leading-tight">{item.vehicle}</span>
+                                <div className="flex items-center gap-1">
+                                  <Tooltip content={energy.label} position="top">
+                                    <energy.Icon className={`w-3.5 h-3.5 ${energy.className}`} />
+                                  </Tooltip>
+                                  <Tooltip content={etat.label} position="top">
+                                    <etat.Icon className={`w-3.5 h-3.5 ${etat.className}`} />
+                                  </Tooltip>
+                                </div>
                                 {item.carId && (
                                   <button
                                     onClick={() => scrollToCar(item.carId)}
@@ -1342,7 +1398,7 @@ const App = () => {
                                   </button>
                                 )}
                               </div>
-                              <span className={`text-xs px-2 py-0.5 rounded-full w-fit mt-1 ${
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full w-fit mt-0.5 ${
                                 item.type === 'leasing' ? 'bg-blue-100 text-blue-700' 
                                 : item.type === 'credit' ? 'bg-emerald-100 text-emerald-700' 
                                 : 'bg-purple-100 text-purple-700'
@@ -1351,13 +1407,13 @@ const App = () => {
                               </span>
                             </div>
                           </div>
-                          <span className={`font-bold ${item.type === 'leasing' ? 'text-blue-700' : item.type === 'credit' ? 'text-emerald-700' : 'text-purple-700'} text-sm`}>
+                          <span className={`font-bold ${item.type === 'leasing' ? 'text-blue-700' : item.type === 'credit' ? 'text-emerald-700' : 'text-purple-700'} text-xs`}>
                             {item.total.toFixed(0)} CHF
                           </span>
                         </div>
                         
                         {/* Barre empilée */}
-                        <div className="w-full h-4 bg-slate-100 rounded-full overflow-visible flex relative z-30">
+                        <div className="w-full h-3 bg-slate-100 rounded-full overflow-visible flex relative z-30">
                           {Object.keys(item.breakdown).filter(key => key !== 'total').map((key, catIndex) => {
                             const value = item.breakdown[key];
                             const widthPercentage = (value / maxValue) * 100;
