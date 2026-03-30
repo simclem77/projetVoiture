@@ -1256,8 +1256,8 @@ const App = () => {
             </div>
           </div>
 
-          {/* Colonne DROITE (Résultat) - 4/12 - Panneau de classement persistant */}
-          <div className="lg:col-span-4 sticky top-6 space-y-4">
+          {/* Colonne DROITE (Résultat) - 4/12 - Panneau de classement persistant avec défilement indépendant */}
+          <div className="lg:col-span-4 sticky top-6 h-[calc(100vh-3rem)] overflow-y-auto space-y-4 pr-2 scrollbar-thin smooth-scroll">
             
             {/* Bloc Comparaison des Coûts Mensuels */}
             <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-4 shadow-slate-800/10 border-t-4 border-t-indigo-600">
